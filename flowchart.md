@@ -1,3 +1,5 @@
+# My Flowchart
+
 ```mermaid
 graph TD
     User -->|Create Pool| Factory[LotteryPoolFactory]
@@ -6,7 +8,7 @@ graph TD
     Hook -->|Create| LotteryB[LotteryPool 2]
     User -->|Swap| UniswapPool
     UniswapPool -->|Fee Collection| LotteryA
-    LotteryA -->|VRF| Chainlink;
+    LotteryA -->|VRF| Chainlink
     Chainlink -->|Randomness| LotteryA
     LotteryA -->|Distribute| Winner
     User -->|Place Bet| PredictionMarket
