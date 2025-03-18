@@ -149,52 +149,56 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         _;
     }
 
-    function placeBet(
-        PoolKey calldata key,
-        uint256 targetTVL,
-        uint256 betAmount,
-        uint40 duration
-    ) external {
-        PoolId poolId = key.toId();
-        uint256 fee = (betAmount * feeBps) / 10_000;
-        uint256 netBet = betAmount - fee;
+    // ===== Market Management Functions =====
 
-        betToken.transferFrom(msg.sender, address(this), betAmount);
-        bets.push(
-            Bet({
-                user: msg.sender,
-                poolId: poolId,
-                targetTVL: targetTVL,
-                betAmount: netBet,
-                lockTime: uint40(block.timestamp),
-                settleTime: uint40(block.timestamp + duration),
-                resolved: false,
-                won: false
-            })
+    /**
+     * @notice Creates a new market for a prediction
+     * @param title The title of the market
+     * @param description The description of the market
+     * @param predictionType The type of prediction
+     * @param validationTimestamp The timestamp of the validation
+     * @param minBetAmount The minimum bet amount
+     * @param maxBetAmount The maximum bet amount
+     * @param marketFee The market fee in basis points (e.g., 50 = 0.5%)
+     */
+    function createMarket(
+        string memory title,
+        string memory description,
+        PredictionType predictionType,
+        uint256 validationTimestamp,
+        uint256 minBetAmount,
+        uint256 maxBetAmount,
+        uint256 marketFee
+    ) external nonReentrant {
+        require(marketFee <= MAX_PLATFORM_FEE, "Market fee exceeds max");
+        require(minBetAmount > 0, "Min bet amount must be greater than 0");
+        require(
+            maxBetAmount > minBetAmount,
+            "Max bet amount must be greater than min bet amount"
+        );
+        require(
+            validationTimestamp > block.timestamp + minValidationDelay,
+            "Validation timestamp too soon"
+        );
+        require(
+            validationTimestamp < block.timestamp + maxValidationDelay,
+            "Validation timestamp too far"
         );
 
-        emit BetPlaced(bets.length - 1, msg.sender, poolId, targetTVL);
-    }
+        Market storage newMarket = markets[nextMarketId];
+        newMarket.id = nextMarketId;
+        newMarket.title = title;
+        newMarket.description = description;
+        newMarket.predictionType = predictionType;
+        newMarket.validationTimestamp = validationTimestamp;
+        newMarket.minBetAmount = minBetAmount;
+        newMarket.maxBetAmount = maxBetAmount;
+        newMarket.platformFee = marketFee;
+        newMarket.isActive = true;
+        newMarket.isSettled = false;
 
-    function settleBet(uint256 betId) external {
-        Bet storage bet = bets[betId];
-        require(block.timestamp >= bet.settleTime, "Too early");
-        require(!bet.resolved, "Already resolved");
+        emit MarketCreated(nextMarketId, title, predictionType);
 
-        uint256 finalTVL = hook.getPoolTVL(bet.poolId);
-        bet.won = finalTVL >= bet.targetTVL;
-        bet.resolved = true;
-
-        if (bet.won) {
-            uint256 reward = bet.betAmount * 2; // Simplified; adjust with losing bets pool
-            betToken.transfer(bet.user, reward);
-            emit BetSettled(betId, true, reward);
-        } else {
-            emit BetSettled(betId, false, 0);
-        }
-    }
-
-    function getBet(uint256 betId) external view returns (Bet memory) {
-        return bets[betId];
+        nextMarketId++;
     }
 }
