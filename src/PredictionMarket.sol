@@ -9,8 +9,36 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {PoolPlayHook} from "./PoolPlayHook.sol";
 
+/**
+ * @title PoolPlayPredictionMarket
+ * @notice A prediction market for PoolPlay pools
+ * @dev This contract allows users to place bets on the future TVL of a PoolPlay pool
+ * @dev The contract is owned by the PoolPlay team and anyone can set bets
+ * @dev The contract is also responsible for collecting fees from winning bets
+ */
 contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
-    using PoolIdLibrary for PoolKey;
+    // ===== Enums =====
+    enum PredictionType {
+        TVL,
+        VOLUME_24H,
+        FEES_24H,
+        POSITION_VALUE,
+        PRICE,
+        PRICE_RATIO
+    }
+    enum PredictionOutcome {
+        PENDING,
+        WON,
+        LOST,
+        CANCELLED,
+        DISPUTED
+    }
+    enum ComparisonType {
+        GREATER_THAN,
+        LESS_THAN,
+        EQUAL_TO,
+        BETWEEN
+    }
 
     struct Bet {
         address user;
