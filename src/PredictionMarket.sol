@@ -130,9 +130,23 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
     );
     event DisputeFiled(bytes32 indexed validationId, address user);
     event DisputeResolved(bytes32 indexed validationId, bool upheld);
+    event MarketUpdated(uint256 indexed marketId, bool isActive);
 
-    constructor() Ownable(msg.sender) {
-        // Empty constructor for cloning
+    // ===== Constructor =====
+    constructor(
+        address _eigenLayerManager,
+        address _poolPlayHook,
+        address _bettingToken
+    ) Ownable(msg.sender) {
+        eigenLayerManager = IEigenLayerServiceManager(_eigenLayerManager);
+        poolPlayHook = IPoolPlayHook(_poolPlayHook);
+        bettingToken = IERC20(_bettingToken);
+    }
+
+    // ===== Modifiers =====
+    modifier onlyValidMarket(uint256 marketId) {
+        require(marketId > 0 && marketId < nextMarketId, "Invalid market ID");
+        _;
     }
 
     function placeBet(
