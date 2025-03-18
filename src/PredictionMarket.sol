@@ -150,6 +150,14 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         _;
     }
 
+    modifier onlyValidPrediction(uint256 predictionId) {
+        require(
+            predictionId > 0 && predictionId < nextPredictionId,
+            "Invalid prediction ID"
+        );
+        _;
+    }
+
     // ===== Market Management Functions =====
 
     /**
@@ -295,4 +303,8 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         );
         nextPredictionId++;
     }
+
+    function initiatePredictionSettlement(
+        uint256 predictionId
+    ) external nonReentrant onlyValidPrediction(predictionId) {}
 }
