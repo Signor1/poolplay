@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.19;
 
 import {PoolKey} from "v4-core/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/types/PoolId.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable";
+
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {PoolPlayHook} from "./PoolPlayHook.sol";
 
-contract PredictionMarket {
+contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
     using PoolIdLibrary for PoolKey;
 
     struct Bet {
@@ -33,14 +36,8 @@ contract PredictionMarket {
     );
     event BetSettled(uint256 indexed betId, bool won, uint256 reward);
 
-    constructor() {
+    constructor() Ownable(msg.sender) {
         // Empty constructor for cloning
-    }
-
-    function initialize(address _hook, address _betToken) external {
-        require(address(hook) == address(0), "Already initialized");
-        hook = PoolPlayHook(_hook);
-        betToken = IERC20(_betToken);
     }
 
     function placeBet(
