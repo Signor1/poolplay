@@ -40,15 +40,35 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         BETWEEN
     }
 
-    struct Bet {
+    // ===== Structs =====
+    struct Prediction {
+        uint256 id;
         address user;
-        PoolId poolId;
-        uint256 targetTVL;
+        PredictionType predictionType;
+        ComparisonType comparisonType;
+        uint256 targetValue;
+        uint256 targetValue2; // Used for BETWEEN comparison
         uint256 betAmount;
-        uint40 lockTime;
-        uint40 settleTime;
-        bool resolved;
-        bool won;
+        uint256 potentialPayout;
+        uint256 deadline;
+        PredictionOutcome outcome;
+        bytes32 validationId;
+        bool settled;
+        bool withdrawn;
+    }
+
+    struct Market {
+        uint256 id;
+        string title;
+        string description;
+        PredictionType predictionType;
+        uint256 validationTimestamp;
+        uint256 totalBetAmount;
+        uint256 minBetAmount;
+        uint256 maxBetAmount;
+        uint256 platformFee; // In basis points (e.g., 50 = 0.5%)
+        bool isActive;
+        bool isSettled;
     }
 
     PoolPlayHook public hook;
