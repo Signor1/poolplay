@@ -220,4 +220,79 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         market.isActive = isActive;
         emit MarketUpdated(marketId, isActive);
     }
+
+    // ===== Prediction Functions =====
+
+    /**
+     * @notice Places a prediction on a market
+     * @param marketId The ID of the market
+     * @param comparisonType The type of comparison
+     * @param targetValue The target value
+     * @param targetValue2 The target value for BETWEEN comparison
+     * @param betAmount The amount to bet
+     */
+    function placePrediction(
+        uint256 marketId,
+        ComparisonType comparisonType,
+        uint256 targetValue,
+        uint256 targetValue2,
+        uint256 betAmount
+    ) external nonReentrant onlyValidMarket(marketId) {
+        Market storage market = markets[marketId];
+        require(market.isActive, "Market is not active");
+        require(betAmount > 0, "Bet amount must be greater than 0");
+        require(betAmount >= market.minBetAmount, "Bet amount too low");
+        require(betAmount <= market.maxBetAmount, "Bet amount too high");
+        require(
+            market.validationTimestamp > block.timestamp,
+            "Market validation timestamp has passed"
+        );
+
+        if (comparisonType == ComparisonType.BETWEEN) {
+            require(
+                targetValue < targetValue2,
+                "For this comparison type target values must not be the same."
+            );
+        }
+
+        uint256 fee = (betAmount * market.platformFee) / 10000;
+        uint256 potentialPayout = betAmount + ((betAmount * 9500) / 10000); // Example: 95% ROI
+
+        // Transfer tokens from user
+        require(
+            bettingToken.transferFrom(msg.sender, address(this), betAmount),
+            "Token transfer failed"
+        );
+
+        // Create prediction
+        Prediction storage prediction = predictions[nextPredictionId];
+        prediction.id = nextPredictionId;
+        prediction.user = msg.sender;
+        prediction.predictionType = market.predictionType;
+        prediction.comparisonType = comparisonType;
+        prediction.targetValue = targetValue;
+        prediction.targetValue2 = targetValue2;
+        prediction.betAmount = betAmount;
+        prediction.potentialPayout = potentialPayout;
+        prediction.deadline = market.validationTimestamp;
+        prediction.outcome = PredictionOutcome.PENDING;
+        prediction.settled = false;
+        prediction.withdrawn = false;
+
+        // Update market stats
+        market.totalBetAmount += betAmount;
+        marketPredictions[marketId].push(nextPredictionId);
+        userPredictions[msg.sender].push(nextPredictionId);
+
+        // Update platform fees
+        totalPlatformFees += fee;
+
+        emit PredictionPlaced(
+            nextPredictionId,
+            marketId,
+            msg.sender,
+            betAmount
+        );
+        nextPredictionId++;
+    }
 }
