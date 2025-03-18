@@ -304,7 +304,38 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         nextPredictionId++;
     }
 
+    /**
+     * @notice Initiates the settlement of a prediction
+     * @param predictionId The ID of the prediction to settle
+     */
     function initiatePredictionSettlement(
         uint256 predictionId
-    ) external nonReentrant onlyValidPrediction(predictionId) {}
+    ) external nonReentrant onlyValidPrediction(predictionId) {
+        Prediction storage prediction = predictions[predictionId];
+        require(
+            prediction.deadline > block.timestamp,
+            "Prediction deadline has passed"
+        );
+        require(prediction.settled == false, "Prediction already settled");
+        require(
+            prediction.outcome == PredictionOutcome.PENDING,
+            "Prediction outcome is not pending"
+        );
+
+        // Request validation from EigenLayer
+        bytes32 validationId = keccak256(
+            abi.encode(
+                "POOLPLAY_VALIDATION",
+                predictionId,
+                block.timestamp,
+                msg.sender
+            )
+        );
+
+        prediction.validationId = validationId;
+        validationIdToPredictionId[validationId] = predictionId;
+
+        // Request validation from EigenLayer operators
+        emit ValidationRequested(validationId, predictionId);
+    }
 }
