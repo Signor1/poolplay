@@ -203,4 +203,21 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
 
         nextMarketId++;
     }
+
+    /**
+     * @notice Updates a market
+     * @param marketId The ID of the market to update
+     * @param isActive Whether the market is active
+     */
+    function updateMarket(
+        uint256 marketId,
+        bool isActive
+    ) external nonReentrant onlyValidMarket(marketId) {
+        Market storage market = markets[marketId];
+        require(market.creator == msg.sender, "Only creator can update market");
+        require(market.isActive != isActive, "No change in market status");
+
+        market.isActive = isActive;
+        emit MarketUpdated(marketId, isActive);
+    }
 }
