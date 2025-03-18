@@ -59,6 +59,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
 
     struct Market {
         uint256 id;
+        address creator;
         string title;
         string description;
         PredictionType predictionType;
@@ -187,6 +188,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
 
         Market storage newMarket = markets[nextMarketId];
         newMarket.id = nextMarketId;
+        newMarket.creator = msg.sender;
         newMarket.title = title;
         newMarket.description = description;
         newMarket.predictionType = predictionType;
