@@ -71,18 +71,65 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         bool isSettled;
     }
 
-    PoolPlayHook public hook;
-    IERC20 public betToken;
-    Bet[] public bets;
-    uint24 public feeBps = 5; // 0.05% fee per bet
+    // ===== State Variables =====
+    IEigenLayerServiceManager public eigenLayerManager;
+    IPoolPlayHook public poolPlayHook;
+    IERC20 public bettingToken;
 
-    event BetPlaced(
-        uint256 indexed betId,
-        address indexed user,
-        PoolId poolId,
-        uint256 targetTVL
+    uint256 public nextMarketId = 1;
+    uint256 public nextPredictionId = 1;
+    uint256 public totalPlatformFees = 0;
+    uint256 public minOperatorValidations = 3; // Minimum validations required from EigenLayer operators
+
+    // Fee settings
+    uint256 public constant MAX_PLATFORM_FEE = 1000; // 10% in basis points
+    uint256 public platformFee = 50; // 0.5% in basis points
+
+    // Timeframe settings
+    uint256 public minValidationDelay = 1 hours;
+    uint256 public maxValidationDelay = 90 days;
+
+    // Mappings
+    mapping(uint256 => Market) public markets;
+    mapping(uint256 => Prediction) public predictions;
+    mapping(uint256 => uint256[]) public marketPredictions;
+    mapping(address => uint256[]) public userPredictions;
+    mapping(bytes32 => uint256) public validationIdToPredictionId;
+    mapping(bytes32 => uint256) public disputeResolutions;
+
+    // Events
+    event MarketCreated(
+        uint256 indexed marketId,
+        string title,
+        PredictionType predictionType
     );
-    event BetSettled(uint256 indexed betId, bool won, uint256 reward);
+    event MarketUpdated(uint256 indexed marketId, bool isActive);
+    event PredictionPlaced(
+        uint256 indexed predictionId,
+        uint256 indexed marketId,
+        address user,
+        uint256 betAmount
+    );
+    event PredictionSettled(
+        uint256 indexed predictionId,
+        PredictionOutcome outcome
+    );
+    event PredictionWithdrawn(
+        uint256 indexed predictionId,
+        address user,
+        uint256 amount
+    );
+    event ValidationRequested(
+        bytes32 indexed validationId,
+        uint256 predictionId
+    );
+    event ValidationCompleted(
+        bytes32 indexed validationId,
+        uint256 actualValue,
+        PredictionOutcome outcome
+    );
+    event DisputeFiled(bytes32 indexed validationId, address user);
+    event DisputeResolved(bytes32 indexed validationId, bool upheld);
 
     constructor() Ownable(msg.sender) {
         // Empty constructor for cloning
