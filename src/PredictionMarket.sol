@@ -511,4 +511,14 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         
         emit DisputeResolved(validationId, upholdDispute);
     }
+
+    // ===== View Functions =====
+    /**
+     * @notice Gets all predictions for a user
+     * @param user The address of the user
+     * @return predictionIds The IDs of the user's predictions
+     */
+    function getUserPredictions(address user) external view returns (uint256[] memory) {
+        return userPredictions[user];
+    }
 }
