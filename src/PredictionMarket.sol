@@ -547,4 +547,15 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
             revert("Unsupported prediction type");
         }
     }
+
+    // ===== Admin Functions =====
+    /**
+     * @notice Withdraws accumulated platform fees
+     * @param amount The amount to withdraw
+     */
+    function withdrawPlatformFees(uint256 amount) external onlyOwner {
+        require(amount <= totalPlatformFees, "Amount exceeds available fees");
+        totalPlatformFees -= amount;
+        require(bettingToken.transfer(owner(), amount), "Transfer failed");
+    }
 }
