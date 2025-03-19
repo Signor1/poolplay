@@ -7,7 +7,8 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable";
 
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {PoolPlayHook} from "./PoolPlayHook.sol";
+import {PoolPlayHook} from "./Interfaces/IPoolPlayHook.sol";
+import {IEigenLayerServiceManager} from "./Interfaces/IEigenLayerServiceManager.sol";
 
 /**
  * @title PoolPlayPredictionMarket
