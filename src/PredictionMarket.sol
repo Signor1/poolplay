@@ -470,4 +470,25 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
             prediction.betAmount
         );
     }
+
+    // ===== Dispute Resolution Functions =====
+
+    /**
+     * @notice Files a dispute for a prediction
+     * @param validationId The ID of the validation
+     */
+    function fileDispute(bytes32 validationId) external {
+        uint256 predictionId = validationIdToPredictionId[validationId];
+        Prediction storage prediction = predictions[predictionId];
+
+        require(prediction.user == msg.sender, "Not prediction owner");
+        require(prediction.settled, "Prediction not settled");
+        require(!prediction.withdrawn, "Already withdrawn");
+
+
+        / Require some stake to prevent frivolous disputes
+        require(bettingToken.transferFrom(msg.sender, address(this), prediction.betAmount / 10), "Dispute stake failed");
+        
+        emit DisputeFiled(validationId, msg.sender);
+    }
 }
