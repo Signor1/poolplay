@@ -491,4 +491,24 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         
         emit DisputeFiled(validationId, msg.sender);
     }
+
+    /**
+     * @notice Resolves a dispute for a prediction
+     * @param validationId The ID of the validation
+     * @param actualValue The actual value of the metric
+     * @param upholdDispute Whether the dispute is upheld
+     */
+    function resolveDispute(bytes32 validationId, uint256 actualValue, bool upholdDispute) external onlyOwner {
+        uint256 predictionId = validationIdToPredictionId[validationId];
+        Prediction storage prediction = predictions[predictionId];
+        
+        require(prediction.settled, "Not yet settled");
+        
+        if (upholdDispute) {
+            // Recalculate the outcome with the corrected value
+            _settlePredictionWithValue(validationId, actualValue);
+        }
+        
+        emit DisputeResolved(validationId, upholdDispute);
+    }
 }
