@@ -4,10 +4,10 @@ pragma solidity ^0.8.19;
 import {PoolKey} from "v4-core/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/types/PoolId.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {Ownable} from "@openzeppelin/contracts/access/Ownable";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {PoolPlayHook} from "./Interfaces/IPoolPlayHook.sol";
+import {IPoolPlayHook} from "./Interfaces/IPoolPlayHook.sol";
 import {IEigenLayerServiceManager} from "./Interfaces/IEigenLayerServiceManager.sol";
 
 /**
@@ -105,7 +105,6 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         string title,
         PredictionType predictionType
     );
-    event MarketUpdated(uint256 indexed marketId, bool isActive);
     event PredictionPlaced(
         uint256 indexed predictionId,
         uint256 indexed marketId,
@@ -486,10 +485,16 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         require(prediction.settled, "Prediction not settled");
         require(!prediction.withdrawn, "Already withdrawn");
 
+        // Require some stake to prevent frivolous disputes
+        require(
+            bettingToken.transferFrom(
+                msg.sender,
+                address(this),
+                prediction.betAmount / 10
+            ),
+            "Dispute stake failed"
+        );
 
-        / Require some stake to prevent frivolous disputes
-        require(bettingToken.transferFrom(msg.sender, address(this), prediction.betAmount / 10), "Dispute stake failed");
-        
         emit DisputeFiled(validationId, msg.sender);
     }
 
@@ -499,17 +504,21 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
      * @param actualValue The actual value of the metric
      * @param upholdDispute Whether the dispute is upheld
      */
-    function resolveDispute(bytes32 validationId, uint256 actualValue, bool upholdDispute) external onlyOwner {
+    function resolveDispute(
+        bytes32 validationId,
+        uint256 actualValue,
+        bool upholdDispute
+    ) external onlyOwner {
         uint256 predictionId = validationIdToPredictionId[validationId];
         Prediction storage prediction = predictions[predictionId];
-        
+
         require(prediction.settled, "Not yet settled");
-        
+
         if (upholdDispute) {
             // Recalculate the outcome with the corrected value
             _settlePredictionWithValue(validationId, actualValue);
         }
-        
+
         emit DisputeResolved(validationId, upholdDispute);
     }
 
@@ -519,7 +528,9 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
      * @param user The address of the user
      * @return predictionIds The IDs of the user's predictions
      */
-    function getUserPredictions(address user) external view returns (uint256[] memory) {
+    function getUserPredictions(
+        address user
+    ) external view returns (uint256[] memory) {
         return userPredictions[user];
     }
 
@@ -528,7 +539,9 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
      * @param marketId The ID of the market
      * @return predictionIds The IDs of the predictions in the market
      */
-    function getMarketPredictions(uint256 marketId) external view returns (uint256[] memory) {
+    function getMarketPredictions(
+        uint256 marketId
+    ) external view returns (uint256[] memory) {
         return marketPredictions[marketId];
     }
 
@@ -537,13 +550,17 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
      * @param predictionType The type of prediction
      * @return value The current value
      */
-    function getCurrentValue(PredictionType predictionType) public view returns (uint256) {
+    function getCurrentValue(
+        PredictionType predictionType
+    ) public view returns (uint256) {
         if (predictionType == PredictionType.TVL) {
             return poolPlayHook.getPoolTVL();
         } else if (predictionType == PredictionType.VOLUME_24H) {
             return poolPlayHook.getPoolVolume24h();
         } else if (predictionType == PredictionType.FEES_24H) {
-            return poolPlayHook.getFees24h();
+            return poolPlayHook.getPoolFees24h();
+        } else if (predictionType == PredictionType.POSITION_VALUE) {
+            return poolPlayHook.getPositionValue(msg.sender);
         } else {
             revert("Unsupported prediction type");
         }
