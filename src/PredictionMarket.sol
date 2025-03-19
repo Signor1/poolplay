@@ -521,4 +521,13 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
     function getUserPredictions(address user) external view returns (uint256[] memory) {
         return userPredictions[user];
     }
+
+    /**
+     * @notice Gets all predictions for a market
+     * @param marketId The ID of the market
+     * @return predictionIds The IDs of the predictions in the market
+     */
+    function getMarketPredictions(uint256 marketId) external view returns (uint256[] memory) {
+        return marketPredictions[marketId];
+    }
 }
