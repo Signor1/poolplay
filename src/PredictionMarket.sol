@@ -530,4 +530,21 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
     function getMarketPredictions(uint256 marketId) external view returns (uint256[] memory) {
         return marketPredictions[marketId];
     }
+
+    /**
+     * @notice Gets the current value from the hook based on prediction type
+     * @param predictionType The type of prediction
+     * @return value The current value
+     */
+    function getCurrentValue(PredictionType predictionType) public view returns (uint256) {
+        if (predictionType == PredictionType.TVL) {
+            return poolPlayHook.getPoolTVL();
+        } else if (predictionType == PredictionType.VOLUME_24H) {
+            return poolPlayHook.getPoolVolume24h();
+        } else if (predictionType == PredictionType.FEES_24H) {
+            return poolPlayHook.getFees24h();
+        } else {
+            revert("Unsupported prediction type");
+        }
+    }
 }
