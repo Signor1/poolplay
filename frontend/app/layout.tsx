@@ -1,19 +1,20 @@
 import type { Metadata } from "next";
 import localFont from "next/font/local";
 import "@/styles/globals.css";
-import { headers } from 'next/headers' // added
-import ContextProvider from '@/context'
+import { headers } from "next/headers"; // added
+import ContextProvider from "@/context";
+import { Toaster } from "@/components/ui/toaster";
 
-const geistSans = localFont({
-  src: "./fonts/GeistVF.woff",
-  variable: "--font-geist-sans",
-  weight: "100 900",
-});
-const geistMono = localFont({
-  src: "./fonts/GeistMonoVF.woff",
-  variable: "--font-geist-mono",
-  weight: "100 900",
-});
+// const geistSans = localFont({
+//   src: "./fonts/GeistVF.woff",
+//   variable: "--font-geist-sans",
+//   weight: "100 900",
+// });
+// const geistMono = localFont({
+//   src: "./fonts/GeistMonoVF.woff",
+//   variable: "--font-geist-mono",
+//   weight: "100 900",
+// });
 
 export const metadata: Metadata = {
   title: "Create Next App",
@@ -25,16 +26,16 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-
   const headersObj = headers();
-  const cookies = headersObj.get('cookie')
+  const cookies = headersObj.get("cookie");
 
   return (
     <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
-        <ContextProvider cookies={cookies}>{children}</ContextProvider>
+      <body className={` antialiased`}>
+        <ContextProvider cookies={cookies}>
+          {children}
+          <Toaster />
+        </ContextProvider>
       </body>
     </html>
   );
