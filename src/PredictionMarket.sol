@@ -423,7 +423,6 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
     function withdrawWinnings(uint256 predictionId) external nonReentrant {
         Prediction storage prediction = predictions[predictionId];
 
-        require(prediction.user == msg.sender, "Not prediction owner");
         require(prediction.settled, "Not yet settled");
         require(!prediction.withdrawn, "Already withdrawn");
         require(prediction.outcome == PredictionOutcome.WON, "Did not win");
@@ -440,6 +439,35 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
             predictionId,
             msg.sender,
             prediction.potentialPayout
+        );
+    }
+
+    /**
+     * @notice Refunds a bet if the prediction is cancelled
+     * @param predictionId The ID of the prediction
+     */
+    function refundBet(uint256 predictionId) external nonReentrant {
+        Prediction storage prediction = predictions[predictionId];
+
+        require(prediction.user == msg.sender, "Not prediction owner");
+        require(
+            prediction.outcome == PredictionOutcome.CANCELLED,
+            "Not cancelled"
+        );
+        require(!prediction.withdrawn, "Already withdrawn");
+
+        prediction.withdrawn = true;
+
+        // Return only the original bet amount
+        require(
+            bettingToken.transfer(prediction.user, prediction.betAmount),
+            "Transfer failed"
+        );
+
+        emit PredictionWithdrawn(
+            predictionId,
+            prediction.user,
+            prediction.betAmount
         );
     }
 }
