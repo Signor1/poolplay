@@ -415,4 +415,31 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         emit PredictionSettled(predictionId, outcome);
         emit ValidationCompleted(validationId, actualValue, outcome);
     }
+
+    /**
+     * @notice Withdraws winnings for a settled prediction
+     * @param predictionId The ID of the prediction
+     */
+    function withdrawWinnings(uint256 predictionId) external nonReentrant {
+        Prediction storage prediction = predictions[predictionId];
+
+        require(prediction.user == msg.sender, "Not prediction owner");
+        require(prediction.settled, "Not yet settled");
+        require(!prediction.withdrawn, "Already withdrawn");
+        require(prediction.outcome == PredictionOutcome.WON, "Did not win");
+
+        prediction.withdrawn = true;
+
+        // Transfer winnings to user
+        require(
+            bettingToken.transfer(prediction.user, prediction.potentialPayout),
+            "Transfer failed"
+        );
+
+        emit PredictionWithdrawn(
+            predictionId,
+            msg.sender,
+            prediction.potentialPayout
+        );
+    }
 }
