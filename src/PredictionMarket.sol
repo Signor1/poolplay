@@ -338,4 +338,81 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         // Request validation from EigenLayer operators
         emit ValidationRequested(validationId, predictionId);
     }
+
+    /**
+     * @notice Submits a validation for a prediction outcome (called by EigenLayer operators)
+     * @param validationId The ID of the validation
+     * @param actualValue The actual value of the metric being predicted
+     */
+    function submitValidation(
+        bytes32 validationId,
+        uint256 actualValue
+    ) external {
+        require(
+            eigenLayerManager.isActiveOperator(msg.sender),
+            "Only active EigenLayer operators can submit validations"
+        );
+
+        eigenLayerManager.submitDataValidation(
+            validationId,
+            abi.encode(actualValue),
+            actualValue
+        );
+
+        (bytes memory aggregatedData, bool isComplete) = eigenLayerManager
+            .aggregateValidations(validationId);
+
+        if (isComplete) {
+            // Decode the aggregated value (assuming EigenLayer returns the median value)
+            uint256 finalValue = abi.decode(aggregatedData, (uint256));
+
+            // Settle the prediction with the validated value
+            _settlePredictionWithValue(validationId, finalValue);
+        }
+    }
+
+    /**
+     * @notice Settles a prediction based on the validated value
+     * @param validationId The ID of the validation
+     * @param actualValue The actual value of the metric
+     */
+    function _settlePredictionWithValue(
+        bytes32 validationId,
+        uint256 actualValue
+    ) internal {
+        uint256 predictionId = validationIdToPredictionId[validationId];
+        Prediction storage prediction = predictions[predictionId];
+
+        require(prediction.outcome == PredictionOutcome.PENDING, "Not pending");
+        require(!prediction.settled, "Already settled");
+
+        // Determine outcome based on comparison type
+        PredictionOutcome outcome;
+        if (prediction.comparisonType == ComparisonType.GREATER_THAN) {
+            outcome = actualValue > prediction.targetValue
+                ? PredictionOutcome.WON
+                : PredictionOutcome.LOST;
+        } else if (prediction.comparisonType == ComparisonType.LESS_THAN) {
+            outcome = actualValue < prediction.targetValue
+                ? PredictionOutcome.WON
+                : PredictionOutcome.LOST;
+        } else if (prediction.comparisonType == ComparisonType.EQUAL_TO) {
+            outcome = actualValue == prediction.targetValue
+                ? PredictionOutcome.WON
+                : PredictionOutcome.LOST;
+        } else if (prediction.comparisonType == ComparisonType.BETWEEN) {
+            outcome = (actualValue >= prediction.targetValue &&
+                actualValue <= prediction.targetValue2)
+                ? PredictionOutcome.WON
+                : PredictionOutcome.LOST;
+        } else {
+            revert("Invalid comparison type");
+        }
+
+        prediction.outcome = outcome;
+        prediction.settled = true;
+
+        emit PredictionSettled(predictionId, outcome);
+        emit ValidationCompleted(validationId, actualValue, outcome);
+    }
 }
