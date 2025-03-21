@@ -546,6 +546,15 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
     }
 
     /**
+     * @notice Gets a market
+     * @param marketId The ID of the market
+     * @return market The market
+     */
+    function getMarket(uint256 marketId) external view returns (Market memory) {
+        return markets[marketId];
+    }
+
+    /**
      * @notice Gets the current value from the hook based on prediction type
      * @param predictionType The type of prediction
      * @return value The current value
