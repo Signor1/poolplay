@@ -47,7 +47,7 @@ const NavBar = () => {
                                 smooth={true}
                                 spy={true}
                                 duration={700}
-                                className={`capitalize font-comfortaa text-gray-100 font-normal text-base cursor-pointer transition-all duration-500 hover:bg-primary px-4 py-3 first:pl-8 last:pr-8`}
+                                className={`capitalize font-comfortaa text-neutral-300 font-normal text-base cursor-pointer transition-all duration-500 hover:bg-primary px-4 py-3 first:pl-8 last:pr-8`}
                             >
                                 {link.name}
                             </Spy>

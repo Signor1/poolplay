@@ -80,3 +80,22 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+.gradient {
+  background-image: radial-gradient(farthest-corner circle at 50% 50% in oklab,
+      #000 65% 0%, #3a1a3a 100% 0%);
+}
+
+.pattern1 {
+  background-image: url('/patternpad.png');
+  background-position: center;
+  background-repeat: repeat;
+  background-size: 20%;
+}
+
+.pattern2 {
+  background-image: url('/patternpad2.png');
+  background-position: center;
+  background-repeat: repeat;
+  background-size: 20%;
+}

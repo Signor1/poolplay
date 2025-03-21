@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import "@/styles/globals.css";
 import { headers } from 'next/headers' // added
 import ContextProvider from '@/context'
-import MaxWrapper from "@/components/shared/MaxWrapper";
 import NavBar from "@/components/shared/NavBar";
 import { Toaster } from "sonner";
 import ScrollToTopBtn from "@/components/shared/ScrollToTopBtn";
@@ -28,15 +27,13 @@ export default function RootLayout({
         className="w-full min-h-screen antialiased bg-black"
       >
         <ContextProvider cookies={cookies}>
-          <MaxWrapper>
-            <NavBar />
-            <main className="w-full">
-              {children}
-            </main>
-            <ScrollToTopBtn />
-            <Toaster richColors position="top-right" />
-            {/* <Footer /> */}
-          </MaxWrapper>
+          <NavBar />
+          <main className="w-full">
+            {children}
+          </main>
+          <ScrollToTopBtn />
+          <Toaster richColors position="top-right" />
+          {/* <Footer /> */}
         </ContextProvider>
         <BubbleCursor />
       </body>

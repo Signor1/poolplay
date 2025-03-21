@@ -12,12 +12,12 @@ const HeroSection = () => {
 
             <main className="w-full h-full absolute inset-x-0 top-0 flex flex-col items-center justify-center">
                 <div className="max-w-2xl md:-mt-24 -mt-20 flex flex-col items-center">
-                    <h1 className="font-bubblegum font-semibold text-gray-100 text-6xl md:text-7xl text-center">Gamify Your Liquidity with{" "}
+                    <h1 className="font-bubblegum font-semibold text-neutral-300 text-6xl md:text-7xl text-center">Gamify Your Liquidity with{" "}
                         <SparklesText>
                             <span>PoolPlay!</span>
                         </SparklesText>
                     </h1>
-                    <h3 className="text-gray-200 max-w-xl mt-2 md:text-2xl text-xl font-comfortaa text-center">Swap to win lotteries, bet on pool metrics—all on Uniswap V4</h3>
+                    <h3 className="text-neutral-400 max-w-xl mt-2 md:text-2xl text-xl font-comfortaa text-center">Swap to win lotteries, bet on pool metrics—all on Uniswap V4</h3>
 
                     <InteractiveHoverButton className="text-base mt-6 font-comfortaa">Launch App</InteractiveHoverButton>
                 </div>
