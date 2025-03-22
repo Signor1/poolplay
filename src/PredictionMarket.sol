@@ -8,7 +8,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IPoolPlayHook} from "./Interfaces/IPoolPlayHook.sol";
-import {IEigenLayerServiceManager} from "./Interfaces/IEigenLayerServiceManager.sol";
 
 /**
  * @title PoolPlayPredictionMarket
@@ -78,7 +77,6 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
     }
 
     // ===== State Variables =====
-    IEigenLayerServiceManager public eigenLayerManager;
     IPoolPlayHook public poolPlayHook;
     IERC20 public bettingToken;
 
@@ -145,11 +143,9 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
 
     // ===== Constructor =====
     constructor(
-        address _eigenLayerManager,
         address _poolPlayHook,
         address _bettingToken
     ) Ownable(msg.sender) {
-        eigenLayerManager = IEigenLayerServiceManager(_eigenLayerManager);
         poolPlayHook = IPoolPlayHook(_poolPlayHook);
         bettingToken = IERC20(_bettingToken);
     }
@@ -583,5 +579,13 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         require(amount <= totalPlatformFees, "Amount exceeds available fees");
         totalPlatformFees -= amount;
         require(bettingToken.transfer(owner(), amount), "Transfer failed");
+    }
+
+    /**
+     * @notice Updates the PoolPlay hook
+     * @param _poolPlayHook The address of the new PoolPlay hook
+     */
+    function updatePoolPlayHook(address _poolPlayHook) external onlyOwner {
+        poolPlayHook = IPoolPlayHook(_poolPlayHook);
     }
 }
