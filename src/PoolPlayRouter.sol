@@ -144,4 +144,9 @@ contract PoolPlayRouter is Ownable {
     ) internal {
         _currency.take(manager, _recipient, _amount, false);
     }
+
+    /**
+     * @notice Receive function to allow the router to receive ETH
+     */
+    receive() external payable {}
 }
