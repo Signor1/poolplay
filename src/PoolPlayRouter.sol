@@ -7,6 +7,7 @@ import {PoolKey} from "v4-core/types/PoolKey.sol";
 import {Currency, CurrencyLibrary} from "v4-core/types/Currency.sol";
 import {CurrencySettler} from "@v4-core/test/utils/CurrencySettler.sol";
 import {TransientStateLibrary} from "v4-core/libraries/TransientStateLibrary.sol";
+import {BalanceDelta} from "v4-core/types/BalanceDelta.sol";
 
 contract PoolPlayRouter is Ownable {
     using CurrencyLibrary for Currency;
@@ -51,12 +52,14 @@ contract PoolPlayRouter is Ownable {
 
         delta = abi.decode(
             manager.unlock(
-                CallbackData(
-                    sender,
-                    recipientAddress,
-                    key,
-                    swapParams,
-                    hookData
+                abi.encode(
+                    CallbackData(
+                        sender,
+                        recipientAddress,
+                        key,
+                        swapParams,
+                        hookData
+                    )
                 )
             ),
             (BalanceDelta)
@@ -64,7 +67,7 @@ contract PoolPlayRouter is Ownable {
 
         uint256 ethBalance = address(this).balance;
         if (ethBalance > 0)
-            CurrencyLibrary.NATIVE.transfer(msg.sender, ethBalance);
+            CurrencyLibrary.ADDRESS_ZERO.transfer(msg.sender, ethBalance);
     }
 
     /**
