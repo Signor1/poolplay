@@ -32,6 +32,14 @@ contract PoolPlayRouter is Ownable {
         hook = _hook;
     }
 
+    /**
+     * @notice Swap against the given pool
+     * @param key The pool to swap in
+     * @param sender The address of the sender
+     * @param swapParams The parameters for swapping
+     * @param recipientAddress The address of the recipient
+     * @param hookData The data to pass through to the swap hooks
+     */
     function swap(
         PoolKey memory key,
         address sender,
