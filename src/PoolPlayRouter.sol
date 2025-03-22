@@ -112,6 +112,22 @@ contract PoolPlayRouter is Ownable {
             );
         }
 
+        if (deltaAfter0 > 0) {
+            _take(
+                data.key.currency0,
+                data.recipientAddress,
+                uint256(deltaAfter0)
+            );
+        }
+
+        if (deltaAfter1 > 0) {
+            _take(
+                data.key.currency1,
+                data.recipientAddress,
+                uint256(deltaAfter1)
+            );
+        }
+
         return abi.encode(delta);
     }
 
