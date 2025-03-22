@@ -13,7 +13,7 @@ const Features = () => {
     return (
         <Element name="features">
             <section className="w-full py-32 relative">
-                <PatternLine style="pattern1" className="absolute  inset-x-0 top-0 h-[15px]" />
+                <PatternLine style="pattern1" className="absolute inset-x-0 top-0 h-[15px]" />
 
                 <main className="w-full flex flex-col items-center justify-center">
                     <h2 className="bg-clip-text text-transparent text-center bg-gradient-to-b from-border to-primary text-2xl md:text-5xl  font-bubblegum py-2 md:py-10 relative z-20 font-bold">
@@ -21,7 +21,7 @@ const Features = () => {
                     </h2>
                     <ul className="w-full max-w-3xl grid grid-cols-1 gap-6 md:grid-cols-2 lg:gap-10">
                         <GridItem
-                            icon={<Image src={dice} alt="dice" className="w-full" width={400} height={400} priority quality={100} />}
+                            icon={<Image src={dice} alt="Dice" className="w-full" width={400} height={400} priority quality={100} />}
                             title="Lottery Pools"
                             description="Swap to enter a lottery, win big as you swap!"
                         />
