@@ -63,6 +63,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         address creator;
         string title;
         string description;
+        PoolId poolId;
         PredictionType predictionType;
         uint256 validationTimestamp;
         uint256 totalBetAmount;
@@ -71,6 +72,9 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         uint256 platformFee; // In basis points (e.g., 50 = 0.5%)
         bool isActive;
         bool isSettled;
+        uint256 totalLossBetAmount;
+        uint256 winnerCount;
+        uint256[] winners;
     }
 
     // ===== State Variables =====
@@ -113,7 +117,13 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
     );
     event PredictionSettled(
         uint256 indexed predictionId,
-        PredictionOutcome outcome
+        PredictionOutcome outcome,
+        uint256 potentialPayout
+    );
+    event MarketSettled(
+        uint256 indexed marketId,
+        uint256 actualValue,
+        uint256 winnerCount
     );
     event PredictionWithdrawn(
         uint256 indexed predictionId,
@@ -174,6 +184,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         string memory title,
         string memory description,
         PredictionType predictionType,
+        PoolId poolId,
         uint256 validationTimestamp,
         uint256 minBetAmount,
         uint256 maxBetAmount,
@@ -199,6 +210,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         newMarket.creator = msg.sender;
         newMarket.title = title;
         newMarket.description = description;
+        newMarket.poolId = poolId;
         newMarket.predictionType = predictionType;
         newMarket.validationTimestamp = validationTimestamp;
         newMarket.minBetAmount = minBetAmount;
@@ -206,6 +218,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         newMarket.platformFee = marketFee;
         newMarket.isActive = true;
         newMarket.isSettled = false;
+        newMarket.winnerCount = 0;
 
         emit MarketCreated(nextMarketId, title, predictionType);
 
@@ -220,9 +233,8 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
     function updateMarket(
         uint256 marketId,
         bool isActive
-    ) external nonReentrant onlyValidMarket(marketId) {
+    ) external nonReentrant onlyValidMarket(marketId) onlyOwner {
         Market storage market = markets[marketId];
-        require(market.creator == msg.sender, "Only creator can update market");
         require(market.isActive != isActive, "No change in market status");
 
         market.isActive = isActive;
@@ -305,115 +317,97 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Initiates the settlement of a prediction
-     * @param predictionId The ID of the prediction to settle
+     * @notice Settles a market by checking actual values from the hook
+     * @param marketId The ID of the market to settle
      */
-    function initiatePredictionSettlement(
-        uint256 predictionId
-    ) external nonReentrant onlyValidPrediction(predictionId) {
-        Prediction storage prediction = predictions[predictionId];
+    function settleMarket(
+        uint256 marketId
+    ) external nonReentrant onlyValidMarket(marketId) {
+        Market storage market = markets[marketId];
+
+        require(!market.isSettled, "Market already settled");
         require(
-            prediction.deadline > block.timestamp,
-            "Prediction deadline has passed"
-        );
-        require(prediction.settled == false, "Prediction already settled");
-        require(
-            prediction.outcome == PredictionOutcome.PENDING,
-            "Prediction outcome is not pending"
+            block.timestamp >= market.validationTimestamp,
+            "Too early to settle"
         );
 
-        // Request validation from EigenLayer
-        bytes32 validationId = keccak256(
-            abi.encode(
-                "POOLPLAY_VALIDATION",
-                predictionId,
-                block.timestamp,
-                msg.sender
-            )
-        );
-
-        prediction.validationId = validationId;
-        validationIdToPredictionId[validationId] = predictionId;
-
-        // Request validation from EigenLayer operators
-        emit ValidationRequested(validationId, predictionId);
-    }
-
-    /**
-     * @notice Submits a validation for a prediction outcome (called by EigenLayer operators)
-     * @param validationId The ID of the validation
-     * @param actualValue The actual value of the metric being predicted
-     */
-    function submitValidation(
-        bytes32 validationId,
-        uint256 actualValue
-    ) external {
-        require(
-            eigenLayerManager.isActiveOperator(msg.sender),
-            "Only active EigenLayer operators can submit validations"
-        );
-
-        eigenLayerManager.submitDataValidation(
-            validationId,
-            abi.encode(actualValue),
-            actualValue
-        );
-
-        (bytes memory aggregatedData, bool isComplete) = eigenLayerManager
-            .aggregateValidations(validationId);
-
-        if (isComplete) {
-            // Decode the aggregated value (assuming EigenLayer returns the median value)
-            uint256 finalValue = abi.decode(aggregatedData, (uint256));
-
-            // Settle the prediction with the validated value
-            _settlePredictionWithValue(validationId, finalValue);
-        }
-    }
-
-    /**
-     * @notice Settles a prediction based on the validated value
-     * @param validationId The ID of the validation
-     * @param actualValue The actual value of the metric
-     */
-    function _settlePredictionWithValue(
-        bytes32 validationId,
-        uint256 actualValue
-    ) internal {
-        uint256 predictionId = validationIdToPredictionId[validationId];
-        Prediction storage prediction = predictions[predictionId];
-
-        require(prediction.outcome == PredictionOutcome.PENDING, "Not pending");
-        require(!prediction.settled, "Already settled");
-
-        // Determine outcome based on comparison type
-        PredictionOutcome outcome;
-        if (prediction.comparisonType == ComparisonType.GREATER_THAN) {
-            outcome = actualValue > prediction.targetValue
-                ? PredictionOutcome.WON
-                : PredictionOutcome.LOST;
-        } else if (prediction.comparisonType == ComparisonType.LESS_THAN) {
-            outcome = actualValue < prediction.targetValue
-                ? PredictionOutcome.WON
-                : PredictionOutcome.LOST;
-        } else if (prediction.comparisonType == ComparisonType.EQUAL_TO) {
-            outcome = actualValue == prediction.targetValue
-                ? PredictionOutcome.WON
-                : PredictionOutcome.LOST;
-        } else if (prediction.comparisonType == ComparisonType.BETWEEN) {
-            outcome = (actualValue >= prediction.targetValue &&
-                actualValue <= prediction.targetValue2)
-                ? PredictionOutcome.WON
-                : PredictionOutcome.LOST;
+        // Get actual value from hook
+        uint256 actualValue;
+        if (market.predictionType == PredictionType.TVL) {
+            actualValue = poolPlayHook.getPoolTVL(market.poolId);
+        } else if (market.predictionType == PredictionType.VOLUME_24H) {
+            actualValue = poolPlayHook.getPoolVolume24h(market.poolId);
+        } else if (market.predictionType == PredictionType.FEES_24H) {
+            actualValue = poolPlayHook.getPoolFees24h(market.poolId);
         } else {
-            revert("Invalid comparison type");
+            revert("Unsupported prediction type");
         }
 
-        prediction.outcome = outcome;
-        prediction.settled = true;
+        // Process all predictions in this market
+        uint256[] memory preds = marketPredictions[marketId];
+        uint256 totalLossBetAmount = 0;
+        uint256 winnerCount = 0;
 
-        emit PredictionSettled(predictionId, outcome);
-        emit ValidationCompleted(validationId, actualValue, outcome);
+        // First pass: determine winners and losers
+        for (uint256 i = 0; i < preds.length; i++) {
+            Prediction storage pred = predictions[preds[i]];
+            if (pred.settled) continue;
+
+            // Determine if prediction was correct
+            bool isCorrect;
+            if (pred.comparisonType == ComparisonType.GREATER_THAN) {
+                isCorrect = actualValue > pred.targetValue;
+            } else if (pred.comparisonType == ComparisonType.LESS_THAN) {
+                isCorrect = actualValue < pred.targetValue;
+            } else if (pred.comparisonType == ComparisonType.EQUAL_TO) {
+                isCorrect = actualValue == pred.targetValue;
+            } else if (pred.comparisonType == ComparisonType.BETWEEN) {
+                isCorrect = (actualValue >= pred.targetValue &&
+                    actualValue <= pred.targetValue2);
+            } else {
+                revert("Invalid comparison type");
+            }
+
+            // Mark as won or lost
+            if (isCorrect) {
+                pred.outcome = PredictionOutcome.WON;
+                market.winners.push(pred.id);
+                winnerCount++;
+            } else {
+                pred.outcome = PredictionOutcome.LOST;
+                totalLossBetAmount += pred.betAmount;
+            }
+
+            pred.settled = true;
+        }
+
+        // Store total loss amount and winner count
+        market.totalLossBetAmount = totalLossBetAmount;
+        market.winnerCount = winnerCount;
+
+        // Second pass: calculate winnings for each winner
+        if (winnerCount > 0) {
+            uint256 winningsPerWinner = totalLossBetAmount / winnerCount;
+
+            for (uint256 i = 0; i < market.winners.length; i++) {
+                uint256 predId = market.winners[i];
+                Prediction storage pred = predictions[predId];
+
+                // Winner gets their bet back plus share of losses
+                pred.potentialPayout = pred.betAmount + winningsPerWinner;
+
+                emit PredictionSettled(
+                    predId,
+                    PredictionOutcome.WON,
+                    pred.potentialPayout
+                );
+            }
+        }
+
+        // Mark market as settled
+        market.isSettled = true;
+
+        emit MarketSettled(marketId, actualValue, winnerCount);
     }
 
     /**
@@ -471,57 +465,6 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         );
     }
 
-    // ===== Dispute Resolution Functions =====
-
-    /**
-     * @notice Files a dispute for a prediction
-     * @param validationId The ID of the validation
-     */
-    function fileDispute(bytes32 validationId) external {
-        uint256 predictionId = validationIdToPredictionId[validationId];
-        Prediction storage prediction = predictions[predictionId];
-
-        require(prediction.user == msg.sender, "Not prediction owner");
-        require(prediction.settled, "Prediction not settled");
-        require(!prediction.withdrawn, "Already withdrawn");
-
-        // Require some stake to prevent frivolous disputes
-        require(
-            bettingToken.transferFrom(
-                msg.sender,
-                address(this),
-                prediction.betAmount / 10
-            ),
-            "Dispute stake failed"
-        );
-
-        emit DisputeFiled(validationId, msg.sender);
-    }
-
-    /**
-     * @notice Resolves a dispute for a prediction
-     * @param validationId The ID of the validation
-     * @param actualValue The actual value of the metric
-     * @param upholdDispute Whether the dispute is upheld
-     */
-    function resolveDispute(
-        bytes32 validationId,
-        uint256 actualValue,
-        bool upholdDispute
-    ) external onlyOwner {
-        uint256 predictionId = validationIdToPredictionId[validationId];
-        Prediction storage prediction = predictions[predictionId];
-
-        require(prediction.settled, "Not yet settled");
-
-        if (upholdDispute) {
-            // Recalculate the outcome with the corrected value
-            _settlePredictionWithValue(validationId, actualValue);
-        }
-
-        emit DisputeResolved(validationId, upholdDispute);
-    }
-
     // ===== View Functions =====
     /**
      * @notice Gets all predictions for a user
@@ -560,16 +503,17 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
      * @return value The current value
      */
     function getCurrentValue(
+        PoolId poolId,
         PredictionType predictionType
     ) public view returns (uint256) {
         if (predictionType == PredictionType.TVL) {
-            return poolPlayHook.getPoolTVL();
+            return poolPlayHook.getPoolTVL(poolId);
         } else if (predictionType == PredictionType.VOLUME_24H) {
-            return poolPlayHook.getPoolVolume24h();
+            return poolPlayHook.getPoolVolume24h(poolId);
         } else if (predictionType == PredictionType.FEES_24H) {
-            return poolPlayHook.getPoolFees24h();
+            return poolPlayHook.getPoolFees24h(poolId);
         } else if (predictionType == PredictionType.POSITION_VALUE) {
-            return poolPlayHook.getPositionValue(msg.sender);
+            return poolPlayHook.getPositionValue(poolId, msg.sender);
         } else {
             revert("Unsupported prediction type");
         }
