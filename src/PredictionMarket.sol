@@ -465,6 +465,37 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         );
     }
 
+    /**
+     * @notice Admin function to cancel a market
+     * @param marketId The ID of the market to cancel
+     */
+    function cancelMarket(uint256 marketId) external onlyOwner {
+        Market storage market = markets[marketId];
+        require(market.id == marketId, "Market does not exist");
+        require(!market.isSettled, "Market already settled");
+
+        // Mark market as settled
+        market.isSettled = true;
+
+        // Mark all predictions as cancelled
+        uint256[] memory preds = marketPredictions[marketId];
+        for (uint256 i = 0; i < preds.length; i++) {
+            Prediction storage pred = predictions[preds[i]];
+            if (!pred.settled) {
+                pred.outcome = PredictionOutcome.CANCELLED;
+                pred.settled = true;
+
+                emit PredictionSettled(
+                    pred.id,
+                    PredictionOutcome.CANCELLED,
+                    pred.betAmount
+                );
+            }
+        }
+
+        emit MarketSettled(marketId, 0, 0);
+    }
+
     // ===== View Functions =====
     /**
      * @notice Gets all predictions for a user
