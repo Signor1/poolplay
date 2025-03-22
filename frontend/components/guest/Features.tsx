@@ -4,7 +4,8 @@ import { Element } from "react-scroll"
 import PatternLine from "../shared/PatternLine"
 import { GlowingEffect } from "../ui/glowing-effect";
 import Image from "next/image";
-import poolplayLogo from "@/public/dice.png"
+import dice from "@/public/dice2.png"
+import bet from "@/public/prediction.png"
 import { SparklesText } from "../magicui/sparkles-text";
 
 
@@ -18,17 +19,15 @@ const Features = () => {
                     <h2 className="bg-clip-text text-transparent text-center bg-gradient-to-b from-border to-primary text-2xl md:text-5xl  font-bubblegum py-2 md:py-10 relative z-20 font-bold">
                         PoolPlay Features
                     </h2>
-                    <ul className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:gap-10">
+                    <ul className="w-full max-w-3xl grid grid-cols-1 gap-6 md:grid-cols-2 lg:gap-10">
                         <GridItem
-                            area="md:[grid-area:1/1/2/2]"
-                            icon={<Image src={poolplayLogo} alt="Logo" className="w-[70%]" width={400} height={400} priority quality={100} />}
+                            icon={<Image src={dice} alt="dice" className="w-full" width={400} height={400} priority quality={100} />}
                             title="Lottery Pools"
                             description="Swap to enter a lottery, win big as you swap!"
                         />
 
                         <GridItem
-                            area="md:[grid-area:1/2/2/3]"
-                            icon={<Image src={poolplayLogo} alt="Logo" className="w-[70%]" width={400} height={400} priority quality={100} />}
+                            icon={<Image src={bet} alt="Prediction" className="w-full" width={400} height={400} priority quality={100} />}
                             title="Prediction Markets"
                             description="Bet on pool stats like TVL, settle with rewards."
                         />
@@ -42,15 +41,14 @@ const Features = () => {
 export default Features
 
 interface GridItemProps {
-    area: string;
     icon: React.ReactNode;
     title: string;
     description: React.ReactNode;
 }
 
-const GridItem = ({ area, icon, title, description }: GridItemProps) => {
+const GridItem = ({ icon, title, description }: GridItemProps) => {
     return (
-        <li className={`min-h-[14rem] list-none ${area}`}>
+        <li className={`min-h-[14rem] list-none`}>
             <div className="relative h-full rounded-2.5xl border p-2 md:rounded-3xl md:p-3">
                 <GlowingEffect
                     spread={40}
