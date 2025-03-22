@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.19;
-import {PoolId, PoolIdLibrary} from "v4-core/types/PoolId.sol";
+import {PoolId} from "v4-core/types/PoolId.sol";
 
 /**
  * @title IPoolPlayHook
