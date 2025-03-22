@@ -114,4 +114,18 @@ contract PoolPlayRouter is Ownable {
 
         return abi.encode(delta);
     }
+
+    /**
+     * @notice Take a currency from the router
+     * @param _currency The currency to take
+     * @param _recipient The recipient of the currency
+     * @param _amount The amount of currency to take
+     */
+    function _take(
+        Currency _currency,
+        address _recipient,
+        uint256 _amount
+    ) internal {
+        _currency.take(manager, _recipient, _amount, false);
+    }
 }
