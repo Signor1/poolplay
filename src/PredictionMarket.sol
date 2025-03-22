@@ -91,4 +91,8 @@ contract PredictionMarket {
     function getBet(uint256 betId) external view returns (Bet memory) {
         return bets[betId];
     }
+
+    function getBets() external view returns (Bet[] memory) {
+        return bets;
+    }
 }
