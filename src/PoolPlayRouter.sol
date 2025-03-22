@@ -66,4 +66,52 @@ contract PoolPlayRouter is Ownable {
         if (ethBalance > 0)
             CurrencyLibrary.NATIVE.transfer(msg.sender, ethBalance);
     }
+
+    /**
+     * @notice Unlock callback
+     * @param _rawdata The raw data to unlock
+     * @return The data to return to the manager
+     */
+    function unlockCallback(
+        bytes calldata _rawdata
+    ) external returns (bytes memory) {
+        if (msg.sender != address(manager)) revert CallerNotManager();
+
+        CallbackData memory data = abi.decode(_rawdata, (CallbackData));
+
+        BalanceDelta delta = manager.swap(
+            data.key,
+            data.swapParams,
+            data.hookData
+        );
+
+        int256 deltaAfter0 = manager.currencyDelta(
+            address(this),
+            data.key.currency0
+        );
+        int256 deltaAfter1 = manager.currencyDelta(
+            address(this),
+            data.key.currency1
+        );
+
+        if (deltaAfter0 < 0) {
+            data.key.currency0.settle(
+                manager,
+                data.sender,
+                uint256(-deltaAfter0),
+                false
+            );
+        }
+
+        if (deltaAfter1 < 0) {
+            data.key.currency1.settle(
+                manager,
+                data.sender,
+                uint256(-deltaAfter1),
+                false
+            );
+        }
+
+        return abi.encode(delta);
+    }
 }
