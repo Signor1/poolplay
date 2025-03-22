@@ -562,6 +562,18 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         return getCurrentValue(market.poolId, market.predictionType);
     }
 
+    /**
+     * @notice Gets the winners of a market
+     * @param marketId The ID of the market
+     * @return winners The winners of the market
+     */
+    function getWinners(
+        uint256 marketId
+    ) external view returns (uint256[] memory) {
+        Market storage market = markets[marketId];
+        return market.winners;
+    }
+
     // ===== Admin Functions =====
     /**
      * @notice Withdraws accumulated platform fees
