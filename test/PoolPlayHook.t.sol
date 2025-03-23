@@ -130,6 +130,7 @@ pragma solidity ^0.8.26;
 //                 tickLower: -60,
 //                 tickUpper: 60,
 //                 liquidityDelta: int256(
+
 //                     uint256(
 //                         LiquidityAmounts.getLiquidityForAmounts(
 //                             SQRT_PRICE_1_1,
@@ -138,6 +139,7 @@ pragma solidity ^0.8.26;
 //                             token0ToAdd,
 //                             token1ToAdd
 //                         )
+
 //                     )
 //                 ),
 //                 salt: bytes32(0)
@@ -201,10 +203,12 @@ pragma solidity ^0.8.26;
 
 //     function test_liquidityUpdate() public {
 //         // Check initial participants
+
 //         // (, , , , address[] memory participants) = lotteryPool.epochs(
 //         //     lotteryPool.currentEpoch()
 //         // );
 //         // assertEq(participants.length, 1, "Initial participant not recorded");
+
 
 //         // Add more liquidity
 //         uint256 additionalToken0 = 0.5 ether;
@@ -220,6 +224,7 @@ pragma solidity ^0.8.26;
 //                 tickLower: -120,
 //                 tickUpper: 120,
 //                 liquidityDelta: int256(
+
 //                     uint256(
 //                         LiquidityAmounts.getLiquidityForAmounts(
 //                             SQRT_PRICE_1_1,
@@ -241,6 +246,7 @@ pragma solidity ^0.8.26;
 //         //     1,
 //         //     "Multiple participants should not be added for same address"
 //         // );
+
 //     }
 
 //     function test_epochTransition() public {
@@ -249,10 +255,12 @@ pragma solidity ^0.8.26;
 
 //         // Trigger updateLiquidity to start new epoch
 //         vm.prank(address(manager));
+
 //         hook.afterAddLiquidity(
 //             address(this),
 //             localKey,
 //             IPoolManager.ModifyLiquidityParams(0, 0, 0, bytes32(0)),
+
 //             BalanceDeltaLibrary.ZERO_DELTA,
 //             BalanceDeltaLibrary.ZERO_DELTA,
 //             ""
@@ -285,10 +293,12 @@ pragma solidity ^0.8.26;
 
 //         // Trigger updateLiquidity to request new winner
 //         vm.prank(address(manager));
+
 //         hook.afterAddLiquidity(
 //             address(this),
 //             localKey,
-//             IPoolManager.ModifyLiquidityParams(0, 0, 0, bytes32(0)),
+//             IPoolManager.ModifyLiquidityParams(0, 0, 0, bytes32(0));
+
 //             BalanceDeltaLibrary.ZERO_DELTA,
 //             BalanceDeltaLibrary.ZERO_DELTA,
 //             ""
@@ -296,18 +306,22 @@ pragma solidity ^0.8.26;
 
 //         // Get the request ID from the last epoch
 //         uint256 lastEpoch = lotteryPool.currentEpoch() - 1;
+
 //         uint256 requestId = lotteryPool.epochToRequestID(lastEpoch);
+
 
 //         // Simulate VRF fulfillment with mock randomness
 //         uint256[] memory randomWords = new uint256[](1);
 //         randomWords[0] = 42; // Mock random number
 //         vm.prank(address(vrfCoordinator));
+
 //         // lotteryPool.fulfillRandomWords(uint256(requestId), randomWords);
 
 //         // Check if winner was selected and prize was distributed
 //         (, , uint256 totalFees) = lotteryPool.epochs(lastEpoch);
 //         assertGt(totalFees, 0, "Fees should be accumulated");
 //         // assertGt(participants.length, 0, "Should have participants");
+
 //         // Note: Winner selection is probabilistic, so we can't assert a specific winner, but ensure event was emitted
 //     }
 
@@ -325,6 +339,7 @@ pragma solidity ^0.8.26;
 //         predictionMarket.placeBet(localKey, targetTVL, betAmount, duration);
 
 //         // Get the bet ID
+
 //         PredictionMarket.Bet[] memory bets = predictionMarket.getBets();
 //         uint256 betId = bets.length - 1;
 
@@ -342,6 +357,7 @@ pragma solidity ^0.8.26;
 //                 tickLower: -60,
 //                 tickUpper: 60,
 //                 liquidityDelta: int256(
+
 //                     uint256(
 //                         LiquidityAmounts.getLiquidityForAmounts(
 //                             SQRT_PRICE_1_1,
@@ -350,6 +366,7 @@ pragma solidity ^0.8.26;
 //                             additionalToken0,
 //                             additionalToken1
 //                         )
+
 //                     )
 //                 ),
 //                 salt: bytes32(0)
@@ -370,6 +387,7 @@ pragma solidity ^0.8.26;
 //         predictionMarket.settleBet(betId);
 
 //         // Check if the bet is won
+
 //         PredictionMarket.Bet memory bet = predictionMarket.getBet(betId);
 //         require(bet.resolved && bet.won, "Bet should be won");
 
