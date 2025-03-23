@@ -1,5 +1,6 @@
 'use client'
 import About from "@/components/guest/About";
+import ListOfFAQs from "@/components/guest/FAQs";
 import Features from "@/components/guest/Features";
 import HeroSection from "@/components/guest/HeroSection";
 import HowItWorks from "@/components/guest/HowItWorks";
@@ -14,6 +15,7 @@ export default function Home() {
       <Features />
       <HowItWorks />
       <PreviousWinners />
+      <ListOfFAQs />
     </main>
   );
 }
