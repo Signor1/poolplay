@@ -37,10 +37,10 @@ export const Timeline = ({ data }: { data: TimelineEntry[] }) => {
             ref={containerRef}
         >
             <div className="max-w-7xl mx-auto py-20 px-4 md:px-8 lg:px-10">
-                <h2 className="text-xl md:text-5xl mb-4 text-primary font-bold font-bubblegum max-w-4xl">
+                <h2 className="text-3xl md:text-5xl md:mb-4 mb-2 text-primary font-bold font-bubblegum max-w-4xl">
                     How It Works
                 </h2>
-                <p className="text-neutral-400 text-sm md:text-lg font-comfortaa max-w-sm">
+                <p className="text-neutral-400 text-base md:text-lg font-comfortaa max-w-sm">
                     Swap, Bet, and Win - Simple as That!
                 </p>
             </div>

@@ -23,11 +23,11 @@ const PreviousWinners = () => {
 
 
     return (
-        <section className="w-full py-32 relative">
+        <section className="w-full py-32 px-7 relative">
 
             <main className="w-full flex flex-col gap-16 items-center justify-center">
                 <div className="flex flex-col justify-center items-center">
-                    <h2 className="bg-clip-text text-transparent text-center bg-gradient-to-t from-border to-primary text-2xl md:text-5xl  font-bubblegum font-bold">
+                    <h2 className="bg-clip-text text-transparent text-center bg-gradient-to-t from-border to-primary text-3xl md:text-5xl  font-bubblegum font-bold">
                         Previous Winners
                     </h2>
                     <p className="font-comfortaa md:text-xl text-base text-neutral-200 text-center">Celebrating Those Who Played and Won!</p>

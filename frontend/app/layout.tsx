@@ -6,6 +6,7 @@ import NavBar from "@/components/shared/NavBar";
 import { Toaster } from "sonner";
 import ScrollToTopBtn from "@/components/shared/ScrollToTopBtn";
 import BubbleCursor from "@/components/shared/BubbleCursor";
+import Footer from "@/components/shared/Footer";
 
 export const metadata: Metadata = {
   title: "PoolPlay",
@@ -33,7 +34,7 @@ export default function RootLayout({
           </main>
           <ScrollToTopBtn />
           <Toaster richColors position="top-right" />
-          {/* <Footer /> */}
+          <Footer />
         </ContextProvider>
         <BubbleCursor />
       </body>

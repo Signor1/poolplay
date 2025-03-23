@@ -8,7 +8,7 @@ const ListOfFAQs = () => {
             <section className="w-full bg-neutral-950 py-32 px-4">
                 <main className="max-w-4xl mx-auto">
                     <div className="w-full mb-10">
-                        <h2 className="text-xl md:text-5xl mb-4 text-primary font-bold font-bubblegum max-w-4xl">
+                        <h2 className="text-3xl md:text-5xl md:mb-4 mb-2 text-primary font-bold font-bubblegum max-w-4xl">
                             FAQS
                         </h2>
                         <p className="text-neutral-400 text-sm md:text-lg font-comfortaa max-w-sm">
@@ -18,8 +18,8 @@ const ListOfFAQs = () => {
 
                     <Accordion type="single" collapsible className="w-full space-y-2" defaultValue="1">
                         {items.map((item) => (
-                            <AccordionItem value={item.id} key={item.id} className='border-color1/15 border rounded-md px-4 shadow shadow-color1/20'>
-                                <AccordionTrigger className="text-neutral-300 font-bubblegum font-medium text-base md:text-xl">{item.title}</AccordionTrigger>
+                            <AccordionItem value={item.id} key={item.id} className='border-primary/15 border rounded-md px-4 shadow shadow-primary/20'>
+                                <AccordionTrigger className="text-neutral-300 font-bubblegum font-medium text-lg md:text-xl">{item.title}</AccordionTrigger>
                                 <AccordionContent className="pb-4 text-neutral-400 font-comfortaa text-base">
                                     {item.content}
                                 </AccordionContent>
