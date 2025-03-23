@@ -1,5 +1,15 @@
 # PoolPlay
 
+[![EigenLayer](https://img.shields.io/badge/EigenLayer-Restaking-4A90E2)](https://www.eigenlayer.xyz/)
+[![Uniswap Hook](https://img.shields.io/badge/Uniswap-Hook-FF007A?logo=uniswap)](https://docs.uniswap.org/)
+[![Foundry](https://img.shields.io/badge/Foundry-Forge-FE5000)](https://book.getfoundry.sh/)
+[![Next.js](https://img.shields.io/badge/Next.js-14+-000000?logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![TailwindCSS](https://img.shields.io/badge/TailwindCSS-3.0-06B6D4?logo=tailwindcss)](https://tailwindcss.com/)
+[![shadcn/ui](https://img.shields.io/badge/shadcn/ui-Component%20Library-18181B)](https://ui.shadcn.com/)
+[![Reown](https://img.shields.io/badge/Reown-AppKit%20&%20WalletKit-blue)](https://reown.dev/)
+[![Wagmi](https://img.shields.io/badge/Wagmi-2%20Hooks-FC5200?logo=ethereum)](https://wagmi.sh/)
+[![TanStack Query](https://img.shields.io/badge/TanStack%20Query-React%20Query-FF4154)](https://tanstack.com/query)
+
 **PoolPlay** is a Uniswap V4 hook that transforms liquidity pool interactions by integrating gamification features. With Lottery Pools and Prediction Markets, PoolPlay incentivizes liquidity provision and trading by letting users earn rewards through randomized lotteries and strategic bets on pool metrics.
 
 ## Table of Contents
@@ -146,3 +156,4 @@ This project is licensed under the [MIT License](LICENSE).
 - **Signor1**
 - **JeffreyJoel**
 - **BenFaruna**
+- **PhantomOZ**

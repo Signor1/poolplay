@@ -588,4 +588,8 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
     function updatePoolPlayHook(address _poolPlayHook) external onlyOwner {
         poolPlayHook = IPoolPlayHook(_poolPlayHook);
     }
+
+    function getBets() external view returns (Bet[] memory) {
+        return bets;
+    }
 }
