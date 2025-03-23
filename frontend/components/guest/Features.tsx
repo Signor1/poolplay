@@ -1,7 +1,6 @@
 'use client'
 
 import { Element } from "react-scroll"
-import PatternLine from "../shared/PatternLine"
 import { GlowingEffect } from "../ui/glowing-effect";
 import Image from "next/image";
 import dice from "@/public/dice2.png"
@@ -13,7 +12,6 @@ const Features = () => {
     return (
         <Element name="features">
             <section className="w-full py-32 relative">
-                <PatternLine style="pattern1" className="absolute inset-x-0 top-0 h-[15px]" />
 
                 <main className="w-full flex flex-col items-center justify-center">
                     <h2 className="bg-clip-text text-transparent text-center bg-gradient-to-b from-border to-primary text-2xl md:text-5xl  font-bubblegum py-2 md:py-10 relative z-20 font-bold">
