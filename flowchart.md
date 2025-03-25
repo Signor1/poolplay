@@ -2,15 +2,15 @@
 
 ```mermaid
 graph TD
-    User -->|Create Pool| Factory[LotteryPoolFactory]
-    Factory -->|Initialize| Hook[PoolPlayHook]
-    Hook -->|Create| LotteryA[LotteryPool 1]
-    Hook -->|Create| LotteryB[LotteryPool 2]
-    User -->|Swap| UniswapPool
-    UniswapPool -->|Fee Collection| LotteryA
-    LotteryA -->|VRF| Chainlink
-    Chainlink -->|Randomness| LotteryA
-    LotteryA -->|Distribute| Winner
-    User -->|Place Bet| PredictionMarket
-    PredictionMarket -->|Check TVL| Hook
+    User -->|Swap via Router| Router[PoolPlayRouter]
+    Router -->|Initiates Swap| UniswapPool[Uniswap V4 Pool]
+    UniswapPool -->|Triggers| Hook[PoolPlayHook]
+    Hook -->|Collects Fee, Enters User| Lottery[LotteryPool]
+    User -->|Creates Lottery| Lottery
+    Lottery -->|Requests Randomness| Chainlink[Chainlink VRF]
+    Chainlink -->|Returns Winner| Lottery
+    Lottery -->|Distributes Prize| Winner
+    User -->|Places Bet| PredictionMarket[PredictionMarket]
+    PredictionMarket -->|Queries TVL| UniswapPool
+    PredictionMarket -->|Settles Bets| User
 ```

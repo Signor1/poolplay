@@ -2,136 +2,200 @@
 pragma solidity ^0.8.26;
 
 import {Test} from "forge-std/Test.sol";
-import "forge-std/console.sol";
-// import {Deployers} from "@uniswap/v4-core/test/utils/Deployers.sol";
-import {VRFCoordinatorV2_5Mock} from "chainlink-brownie-contracts/contracts/src/v0.8/vrf/mocks/VRFCoordinatorV2_5Mock.sol";
-import {LinkToken} from "chainlink-brownie-contracts/contracts/src/v0.8/shared/token/ERC677/LinkToken.sol";
-
+import {Deployers} from "@uniswap/v4-core/test/utils/Deployers.sol";
 import {LotteryPool} from "../src/LotteryPool.sol";
+import {PoolPlayHook} from "../src/PoolPlayHook.sol";
+import {PoolPlayRouter} from "../src/PoolPlayRouter.sol";
+import {MockERC20} from "./mocks/MockERC20.sol";
+import {PoolId, PoolIdLibrary} from "v4-core/types/PoolId.sol";
+import {PoolKey} from "v4-core/types/PoolKey.sol";
+import {Currency, CurrencyLibrary} from "v4-core/types/Currency.sol";
+import {IPoolManager} from "v4-core/interfaces/IPoolManager.sol";
+import {BalanceDelta} from "v4-core/types/BalanceDelta.sol";
+import {LotteryPoolLib} from "../src/library/LotteryPoolLib.sol";
+import {Hooks} from "v4-core/libraries/Hooks.sol";
 
-contract LotteryPoolTest is Test {
-    VRFCoordinatorV2_5Mock public vrfCoordinator;
+contract LotteryPoolTest is Test, Deployers {
+    using PoolIdLibrary for PoolKey;
+    using CurrencyLibrary for Currency;
+
     LotteryPool public lotteryPool;
+    PoolPlayHook public hook;
+    PoolPlayRouter public router;
+    IPoolManager public poolManager;
+    MockERC20 public token0;
+    MockERC20 public token1;
+    PoolKey public poolkey;
+    PoolId public poolId;
 
-    address owner = mkaddr("owner");
-    address hook = address(0xff);
-    LinkToken payout;
+    address public owner = makeAddr("owner");
+    address public user1 = makeAddr("user1");
+    address public mockVRFCoordinator = makeAddr("vrfCoordinator");
+
+    event LotteryCreated(uint256 indexed lotteryId, PoolId poolId, address token);
+    event FeeDeposited(uint256 indexed lotteryId, uint256 epoch, uint256 amount, address swapper);
+    event WinnerSelected(uint256 indexed lotteryId, uint256 indexed epoch, address indexed winner, uint256 prize);
+    event EpochStarted(uint256 indexed lotteryId, uint256 epoch, uint40 startTime, uint40 endTime);
 
     function setUp() public {
-        switchSigner(owner);
-        vrfCoordinator = new VRFCoordinatorV2_5Mock(1e6, 10e6, 1e18);
-        payout = new LinkToken();
-        lotteryPool = new LotteryPool(address(vrfCoordinator), address(payout));
+        vm.startPrank(owner);
 
-        vrfCoordinator.setLINKAndLINKNativeFeed(address(payout), address(0));
+        // Deploy Uniswap V4 PoolManager and routers
+        deployFreshManager();
+        poolManager = IPoolManager(manager);
 
-        lotteryPool.initialize(hook, 7 days, address(payout));
+        // Deploy tokens
+        token0 = new MockERC20("Token0", "TKN0", 18);
+        token1 = new MockERC20("Token1", "TKN1", 18);
 
-        payout.grantMintAndBurnRoles(owner);
+        // Deploy LotteryPool with mock VRF
+        lotteryPool = new LotteryPool(mockVRFCoordinator);
 
-        payout.mint(address(hook), 1000e18);
-        payout.mint(address(lotteryPool), 10e18);
-        lotteryPool.topUpSubscription(10e18);
-    }
+        // Compute hook address based on permissions
+        uint160 flags = uint160(Hooks.BEFORE_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG);
 
-    function testLotteryPoolDepositFee() public {
-        switchSigner(hook);
-        payout.approve(address(lotteryPool), 100e18);
-        lotteryPool.depositFee(100e18);
-        assertEq(payout.balanceOf(address(lotteryPool)), 100e18);
-    }
+        address hookAddress = address(flags);
 
-    function testRecordLiquidity() public {
-        _depositFee(100e18);
-        for (uint256 i = 0; i < 10; i++) {
-            address addr = mkaddr(string(abi.encode(i)));
-            lotteryPool.recordLiquidity(addr, 100e18 / (i + 1));
-        }
-        uint256 epoch = lotteryPool.currentEpoch();
-        (
-            uint40 startTime,
-            uint40 endTime,
-            uint256 totalFees,
-            ,
-            address[] memory participants
-        ) = lotteryPool.getEpochDetails(epoch);
+        deployCodeTo("PoolPlayHook.sol", abi.encode(poolManager, address(0), address(lotteryPool)), hookAddress);
 
-        assertEq(participants.length, 10);
-        assertEq(totalFees, 100e18);
-        assertEq((endTime - startTime), 7 days);
-    }
+        hook = PoolPlayHook(hookAddress);
 
-    function testWinnerSelection() public {
-        _depositFee(100e18);
-        for (uint256 i = 0; i < 10; i++) {
-            address addr = mkaddr(string(abi.encode(i)));
-            lotteryPool.recordLiquidity(addr, 100e18 / (i + 1));
-        }
-        vm.warp(block.timestamp + 7 days);
-        lotteryPool.updateLiquidity();
+        // Deploy PoolPlayRouter with the hook
+        router = new PoolPlayRouter(address(poolManager), address(hook));
 
-        address winnerAddress = mkaddr(string(abi.encode(1)));
-        uint256 balanceBefore = payout.balanceOf(winnerAddress);
+        // Update hook’s allowedRouter (since it’s immutable, we use vm.store)
+        vm.store(address(hook), keccak256(abi.encode("allowedRouter")), bytes32(uint256(uint160(address(router)))));
 
-        uint256[] memory overrideValues = new uint256[](1);
-        overrideValues[0] = 1;
+        // Approve hook to spend tokens
+        token0.approve(address(hook), type(uint256).max);
+        token1.approve(address(hook), type(uint256).max);
 
-        vrfCoordinator.fulfillRandomWordsWithOverride(
-            1,
-            address(lotteryPool),
-            overrideValues
+        // Initialize pool
+        (key,) =
+            initPool(Currency.wrap(address(token0)), Currency.wrap(address(token1)), hook, 3000, 60, SQRT_PRICE_1_1);
+
+        poolId = key.toId();
+        poolkey = key;
+
+        // Initialize pool in hook
+        hook.initializePool(poolId, 100, 1 days, 1); // 1% fee, 1 day interval, lotteryId=1
+
+        // Add initial liquidity to the pool
+        modifyLiquidityRouter.modifyLiquidity(
+            key,
+            IPoolManager.ModifyLiquidityParams({
+                tickLower: -60,
+                tickUpper: 60,
+                liquidityDelta: 10 ether,
+                salt: bytes32(0)
+            }),
+            ZERO_BYTES
         );
 
-        uint256 balanceAfter = payout.balanceOf(winnerAddress);
+        // Mint tokens
+        token0.mint(user1, 1000 ether);
+        token1.mint(user1, 1000 ether);
 
-        uint256 epoch = lotteryPool.currentEpoch() - 1;
-        (, , , address winner, ) = lotteryPool.getEpochDetails(epoch);
-        assertNotEq(winner, address(0));
-        assertEq(balanceAfter - balanceBefore, 90e18);
+        vm.stopPrank();
+
+        // Approvals
+        vm.prank(user1);
+        token0.approve(address(router), type(uint256).max);
+        vm.prank(user1);
+        token1.approve(address(router), type(uint256).max);
+        vm.prank(user1);
+        token0.approve(address(poolManager), type(uint256).max);
+        vm.prank(user1);
+        token1.approve(address(poolManager), type(uint256).max);
     }
 
-    function testRecordLiquidityStartsNewEpochWhenTimeElapses() public {
-        _depositFee(100e18);
-        for (uint256 i = 0; i < 10; i++) {
-            vm.warp(block.timestamp + 1 days);
-            address addr = mkaddr(string(abi.encode(i)));
-            lotteryPool.recordLiquidity(addr, 100e18 / (i + 1));
-        }
-        uint256 epoch = lotteryPool.currentEpoch();
-        (
-            uint40 startTime,
-            uint40 endTime,
-            uint256 totalFees,
-            ,
-            address[] memory participants
-        ) = lotteryPool.getEpochDetails(epoch);
+    function test_CreateLottery() public {
+        vm.expectEmit(true, true, false, true);
+        emit LotteryCreated(1, poolId, address(token0));
 
-        assertEq(participants.length, 4);
-        assertEq(totalFees, 0);
-        assertEq((endTime - startTime), 7 days);
+        vm.prank(user1);
+        uint256 lotteryId = lotteryPool.createLottery(poolId, address(token0), 1 days, 100);
+
+        (PoolId poolid, address token, uint48 distributionInterval, uint24 lotteryFeeBps, uint256 currentEpoch) =
+            lotteryPool.getLottery(lotteryId);
+
+        assertEq(lotteryId, 1);
+        assertEq(PoolId.unwrap(poolid), PoolId.unwrap(poolId));
+        assertEq(token, address(token0));
+        assertEq(distributionInterval, 1 days);
+        assertEq(lotteryFeeBps, 100);
+        assertEq(currentEpoch, 1);
     }
 
-    function _depositFee(uint256 _amount) public {
-        switchSigner(hook);
-        payout.approve(address(lotteryPool), _amount);
-        lotteryPool.depositFee(_amount);
+    function test_DepositFee_ETH() public {
+        vm.prank(user1);
+        uint256 lotteryId = lotteryPool.createLottery(poolId, address(0), 1 days, 100);
+
+        uint256 amount = 1 ether;
+        vm.deal(user1, amount);
+        vm.prank(user1);
+        lotteryPool.depositFee{value: amount}(lotteryId, amount, user1);
+
+        (uint256 totalFees, address[] memory participants,,) = lotteryPool.getEpoch(lotteryId, 1);
+
+        assertEq(totalFees, amount);
+        assertEq(participants.length, 1);
+        assertEq(participants[0], user1);
     }
 
-    function switchSigner(address _newSigner) public {
-        address foundrySigner = 0x1804c8AB1F12E6bbf3894d4083f33e07309d1f38;
-        if (msg.sender == foundrySigner) {
-            vm.startPrank(_newSigner);
-        } else {
-            vm.stopPrank();
-            vm.startPrank(_newSigner);
-        }
+    function test_DepositFee_ERC20() public {
+        vm.prank(user1);
+        uint256 lotteryId = lotteryPool.createLottery(poolId, address(token0), 1 days, 100);
+
+        uint256 amount = 1 ether;
+        vm.prank(user1);
+        token0.approve(address(lotteryPool), amount);
+        vm.prank(user1);
+        lotteryPool.depositFee(lotteryId, amount, user1);
+
+        (uint256 totalFees, address[] memory participants,,) = lotteryPool.getEpoch(lotteryId, 1);
+
+        assertEq(totalFees, amount);
+        assertEq(participants.length, 1);
+        assertEq(participants[0], user1);
     }
 
-    function mkaddr(string memory name) public returns (address) {
-        address addr = address(
-            uint160(uint256(keccak256(abi.encodePacked(name))))
-        );
-        vm.label(addr, name);
-        return addr;
+    function test_UpdateLottery_NewEpoch() public {
+        vm.prank(user1);
+        uint256 lotteryId = lotteryPool.createLottery(poolId, address(0), 1 days, 100);
+
+        vm.warp(block.timestamp + 1 days + 1);
+        vm.prank(user1);
+        lotteryPool.updateLottery(lotteryId);
+
+        (,,,, uint256 currentEpoch) = lotteryPool.getLottery(lotteryId);
+
+        assertEq(currentEpoch, 2);
+
+        (,, uint40 startTime, uint40 endTime) = lotteryPool.getEpoch(lotteryId, 2);
+
+        assertEq(startTime, uint40(block.timestamp));
+        assertEq(endTime, uint40(block.timestamp + 1 days));
+    }
+
+    function test_SimulateSwapAndFee() public {
+        vm.prank(user1);
+        uint256 lotteryId = lotteryPool.createLottery(poolId, address(token0), 1 days, 100);
+
+        // Perform swap via router
+        vm.startPrank(user1);
+        IPoolManager.SwapParams memory params = IPoolManager.SwapParams({
+            zeroForOne: true,
+            amountSpecified: -1 ether,
+            sqrtPriceLimitX96: SQRT_PRICE_1_1 - 1
+        });
+        router.swap(poolkey, params, user1, 100);
+
+        vm.stopPrank();
+
+        (uint256 totalFees, address[] memory participants,,) = lotteryPool.getEpoch(lotteryId, 1);
+        assertGt(totalFees, 0);
+        assertEq(participants.length, 1);
+        assertEq(participants[0], user1);
     }
 }

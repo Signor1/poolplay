@@ -10,7 +10,7 @@
 [![Wagmi](https://img.shields.io/badge/Wagmi-2%20Hooks-FC5200?logo=ethereum)](https://wagmi.sh/)
 [![TanStack Query](https://img.shields.io/badge/TanStack%20Query-React%20Query-FF4154)](https://tanstack.com/query)
 
-**PoolPlay** is a Uniswap V4 hook that transforms liquidity pool interactions by integrating gamification features. With Lottery Pools and Prediction Markets, PoolPlay incentivizes liquidity provision and trading by letting users earn rewards through randomized lotteries and strategic bets on pool metrics.
+PoolPlay is a Uniswap V4 hook that gamifies decentralized finance by integrating lottery pools and prediction markets into liquidity pool interactions. Users can enter lotteries simply by swapping tokens through supported pools, with fees collected contributing to prize pots, while prediction markets allow betting on pool metrics like TVL.
 
 ## Table of Contents
 
@@ -22,6 +22,10 @@
     - [Prerequisites](#prerequisites)
     - [Installation](#installation)
   - [Contract Overview](#contract-overview)
+    - [`PoolPlayHook`](#poolplayhook)
+    - [`LotteryPool`](#lotterypool)
+    - [`PoolPlayRouter`](#poolplayrouter)
+    - [`PredictionMarket`](#predictionmarket)
   - [Usage](#usage)
   - [Contributing](#contributing)
   - [License](#license)
@@ -29,131 +33,161 @@
 
 ## Features
 
-- **Lottery Pools:**  
-  - A small extra fee is collected on each swap, accumulating into a lottery pot.
-  - At regular intervals (e.g., weekly), a random liquidity provider wins the pot after deducting a 10% operator commission.
-  
-- **Prediction Markets:**  
-  - Users place bets on future pool metrics (e.g., whether TVL will exceed a specified threshold).
-  - The hook tracks relevant metrics and settles bets via a dedicated Prediction Market Contract, with a nominal fee per bet.
+**Swap-to-Enter Lottery Pools**  
+
+- Every swap through a PoolPlay-integrated Uniswap V4 pool collects a small fee (e.g., 1% of input amount)
+- Swappers are automatically entered into daily lotteries via Chainlink VRF
+- 90% of pot goes to winner, 10% operator commission
+
+**Prediction Markets**  
+
+- Bet on future pool metrics (TVL, volume) using ERC20 tokens
+- Outcomes settled via PoolManager data/oracles
+- 0.5% platform fee on settlements
 
 ## Architecture
-
-The diagram below shows the core components and data flow within PoolPlay:
 
 ```mermaid
 flowchart LR
     subgraph A[User Interaction]
-      U1[User: Initiates Swap]
-      U2[User: Enters Lottery]
+      U1[User: Swaps Tokens]
+      U2[User: Creates Lottery]
       U3[User: Places Prediction Bet]
     end
 
     subgraph B[Uniswap Ecosystem]
       UNI[Uniswap V4 Pool]
-      H[PoolPlay Hook]
+      H[PoolPlayHook]
+      R[PoolPlayRouter]
     end
 
     subgraph C[PoolPlay Contracts]
-      L[Lottery Contract]
-      P[Prediction Market Contract]
+      L[LotteryPool]
+      P[PredictionMarket]
     end
 
     subgraph D[External Services]
-      VRF[VRF System for Randomness]
-      ORACLE[Off-Chain Data Oracle]
+      VRF[Chainlink VRF]
+      ORACLE[Off-Chain Oracle]
     end
 
-    U1 -->|Executes Swap| UNI
-    UNI -->|Trigger Hook| H
-    H -->|Collects Fees| L
-    H -->|Tracks Pool Metrics| P
-    U2 -->|Participates in Lottery| L
-    U3 -->|Participates in Bets| P
-    L -->|Requests Random Number| VRF
-    P -->|Fetches Data for Settlement| ORACLE
+    U1 -->|Initiates Swap| R
+    R -->|Executes Swap| UNI
+    UNI -->|Triggers Hook| H
+    H -->|Collects Fee, Enters Swapper| L
+    U2 -->|Creates Lottery for Pool| L
+    L -->|Requests Randomness| VRF
+    VRF -->|Selects Winner| L
+    U3 -->|Places Bet| P
+    P -->|Queries Metrics| UNI
+    P -->|Fetches Data| ORACLE
 ```
-
-*Note: The diagram illustrates a high-level overview of the system. Users interact with Uniswap pools, which trigger the PoolPlay Hook to route fees and data to the Lottery and Prediction Market contracts. External services like a VRF system and off-chain data oracle are integrated for randomness and reliable metric tracking.*
 
 ## Getting Started
 
 ### Prerequisites
 
-- **Node.js & npm:** For development tools and scripts.
-- **Foundry:** For smart contract development and testing.
-- **Ethereum Wallet:** To interact with testnets/mainnet.
-- **Solidity:** Familiarity with writing and deploying smart contracts.
+- Node.js 18+ & npm 9+
+- Foundry (forge 0.2.0+)
+- Ethereum wallet (MetaMask recommended)
+- Solidity fundamentals
 
 ### Installation
 
-1. **Clone the repository:**
+Clone repository:
 
-   ```bash
-   git clone https://github.com/yourusername/PoolPlay.git
-   cd PoolPlay
-   ```
+```bash
+git clone https://github.com/yourusername/PoolPlay.git
+cd PoolPlay
+```
 
-2. **Install dependencies:**
+Install dependencies:
 
-   ```bash
-   npm install
-   ```
+```bash
+npm install
+forge install
+```
 
-3. **Configure environment variables:**  
-   Create a `.env` file for storing sensitive information like private keys and API endpoints.
+Configure environment:
 
-   ```bash
-   cp .env.example .env
-   ```
+```bash
+cp .env.example .env
+# Edit .env with your credentials
+```
 
-4. **Compile the contracts:**
+Compile contracts:
 
-   ```bash
-   npx hardhat compile
-   ```
+```bash
+forge build
+```
 
-5. **Deploy to a testnet:**
+Deploy to testnet:
 
-   ```bash
-   npx hardhat run scripts/deploy.js --network <network-name>
-   ```
+```bash
+forge script script/Deploy.s.sol --rpc-url $RPC_URL --private-key $PRIVATE_KEY --broadcast
+```
 
 ## Contract Overview
 
-- **PoolPlay Hook Contract:**  
-  Implements the Uniswap V4 hook interface to intercept swap transactions, extract fees, and trigger gamified functionalities.
+### `PoolPlayHook`
 
-- **Lottery Contract:**  
-  Accumulates swap fees to form a lottery pot and uses a verifiable randomness function (VRF) to select a random liquidity provider periodically.  
-  - *Operator Commission:* 10% of the pot.
+- Uniswap V4 hook handling swap interception
+- Collects fees and manages lottery entries
 
-- **Prediction Market Contract:**  
-  Tracks key pool metrics (e.g., TVL) to allow users to bet on future performance.  
-  - *Settlement:* Based on data from off-chain oracles.
+### `LotteryPool`
+
+- Permissionless lottery creation/management
+- Chainlink VRF integration for winner selection
+- 10% operator commission structure
+
+### `PoolPlayRouter`
+
+- Swap router ensuring proper hook interaction
+- Maintains swapper address tracking
+
+### `PredictionMarket`
+
+- ERC20-based betting system
+- Oracle-powered metric verification
+- 0.5% platform fee on settlements
 
 ## Usage
 
-- **As a Liquidity Provider:**  
-  Provide liquidity to Uniswap pools integrated with PoolPlay and automatically be eligible for lottery rewards.
+**As a Swapper**  
 
-- **As a Trader/Speculator:**  
-  Execute swaps to contribute fees and participate in prediction bets to potentially profit from pool performance insights.
+1. Connect wallet to PoolPlay dApp
+2. Select supported Uniswap V4 pool
+3. Perform swap to automatically enter lottery
 
-- **For Developers:**  
-  Leverage the hook interfaces to integrate further functionalities or build complementary dApps around PoolPlay.
+**As a Lottery Creator**  
+
+```solidity
+// Create lottery for pool with 1% fee
+LotteryPool.createLottery(
+  poolAddress,
+  feeToken,
+  1 days,
+  100 // 1% fee in basis points
+);
+```
+
+**As a Bettor**  
+
+1. Deposit ERC20 tokens to PredictionMarket
+2. Place bet on desired pool metric
+3. Settle bet after validation period
 
 ## Contributing
 
-We welcome contributions to enhance PoolPlay! Please check our [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! Please see our [Contribution Guidelines](CONTRIBUTING.md) for details.
 
 ## License
 
-This project is licensed under the [MIT License](LICENSE).
+MIT License - See [LICENSE](LICENSE) for full text
 
 ## Team Members
 
-- **Signor1**
-- **JeffreyJoel**
-- **BenFaruna**
-- **PhantomOZ**
+- [Signor1](https://github.com/Signor1)
+- [JeffreyJoel](https://github.com/JeffreyJoel)
+- [BenFaruna](https://github.com/BenFaruna)
+- [PhantomOZ](https://github.com/PhantomOZ)

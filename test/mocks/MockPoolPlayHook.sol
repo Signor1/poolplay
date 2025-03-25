@@ -22,11 +22,7 @@ contract MockPoolPlayHook is IPoolPlayHook {
         poolFees24h[poolId] = value;
     }
 
-    function setPositionValue(
-        PoolId poolId,
-        address user,
-        uint256 value
-    ) external {
+    function setPositionValue(PoolId poolId, address user, uint256 value) external {
         positionValues[poolId][user] = value;
     }
 
@@ -42,10 +38,7 @@ contract MockPoolPlayHook is IPoolPlayHook {
         return poolFees24h[poolId];
     }
 
-    function getPositionValue(
-        PoolId poolId,
-        address user
-    ) external view returns (uint256) {
+    function getPositionValue(PoolId poolId, address user) external view returns (uint256) {
         return positionValues[poolId][user];
     }
 }

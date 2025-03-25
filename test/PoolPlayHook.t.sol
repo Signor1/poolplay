@@ -209,7 +209,6 @@ pragma solidity ^0.8.26;
 //         // );
 //         // assertEq(participants.length, 1, "Initial participant not recorded");
 
-
 //         // Add more liquidity
 //         uint256 additionalToken0 = 0.5 ether;
 //         uint256 additionalToken1 = 0.5 ether;
@@ -308,7 +307,6 @@ pragma solidity ^0.8.26;
 //         uint256 lastEpoch = lotteryPool.currentEpoch() - 1;
 
 //         uint256 requestId = lotteryPool.epochToRequestID(lastEpoch);
-
 
 //         // Simulate VRF fulfillment with mock randomness
 //         uint256[] memory randomWords = new uint256[](1);

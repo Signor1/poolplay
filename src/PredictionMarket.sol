@@ -102,50 +102,19 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
     mapping(bytes32 => uint256) public disputeResolutions;
 
     // Events
-    event MarketCreated(
-        uint256 indexed marketId,
-        string title,
-        PredictionType predictionType
-    );
-    event PredictionPlaced(
-        uint256 indexed predictionId,
-        uint256 indexed marketId,
-        address user,
-        uint256 betAmount
-    );
-    event PredictionSettled(
-        uint256 indexed predictionId,
-        PredictionOutcome outcome,
-        uint256 potentialPayout
-    );
-    event MarketSettled(
-        uint256 indexed marketId,
-        uint256 actualValue,
-        uint256 winnerCount
-    );
-    event PredictionWithdrawn(
-        uint256 indexed predictionId,
-        address user,
-        uint256 amount
-    );
-    event ValidationRequested(
-        bytes32 indexed validationId,
-        uint256 predictionId
-    );
-    event ValidationCompleted(
-        bytes32 indexed validationId,
-        uint256 actualValue,
-        PredictionOutcome outcome
-    );
+    event MarketCreated(uint256 indexed marketId, string title, PredictionType predictionType);
+    event PredictionPlaced(uint256 indexed predictionId, uint256 indexed marketId, address user, uint256 betAmount);
+    event PredictionSettled(uint256 indexed predictionId, PredictionOutcome outcome, uint256 potentialPayout);
+    event MarketSettled(uint256 indexed marketId, uint256 actualValue, uint256 winnerCount);
+    event PredictionWithdrawn(uint256 indexed predictionId, address user, uint256 amount);
+    event ValidationRequested(bytes32 indexed validationId, uint256 predictionId);
+    event ValidationCompleted(bytes32 indexed validationId, uint256 actualValue, PredictionOutcome outcome);
     event DisputeFiled(bytes32 indexed validationId, address user);
     event DisputeResolved(bytes32 indexed validationId, bool upheld);
     event MarketUpdated(uint256 indexed marketId, bool isActive);
 
     // ===== Constructor =====
-    constructor(
-        address _poolPlayHook,
-        address _bettingToken
-    ) Ownable(msg.sender) {
+    constructor(address _poolPlayHook, address _bettingToken) Ownable(msg.sender) {
         poolPlayHook = IPoolPlayHook(_poolPlayHook);
         bettingToken = IERC20(_bettingToken);
     }
@@ -157,10 +126,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
     }
 
     modifier onlyValidPrediction(uint256 predictionId) {
-        require(
-            predictionId > 0 && predictionId < nextPredictionId,
-            "Invalid prediction ID"
-        );
+        require(predictionId > 0 && predictionId < nextPredictionId, "Invalid prediction ID");
         _;
     }
 
@@ -188,18 +154,9 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
     ) external nonReentrant {
         require(marketFee <= MAX_PLATFORM_FEE, "Market fee exceeds max");
         require(minBetAmount > 0, "Min bet amount must be greater than 0");
-        require(
-            maxBetAmount > minBetAmount,
-            "Max bet amount must be greater than min bet amount"
-        );
-        require(
-            validationTimestamp > block.timestamp + minValidationDelay,
-            "Validation timestamp too soon"
-        );
-        require(
-            validationTimestamp < block.timestamp + maxValidationDelay,
-            "Validation timestamp too far"
-        );
+        require(maxBetAmount > minBetAmount, "Max bet amount must be greater than min bet amount");
+        require(validationTimestamp > block.timestamp + minValidationDelay, "Validation timestamp too soon");
+        require(validationTimestamp < block.timestamp + maxValidationDelay, "Validation timestamp too far");
 
         Market storage newMarket = markets[nextMarketId];
         newMarket.id = nextMarketId;
@@ -226,10 +183,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
      * @param marketId The ID of the market to update
      * @param isActive Whether the market is active
      */
-    function updateMarket(
-        uint256 marketId,
-        bool isActive
-    ) external nonReentrant onlyValidMarket(marketId) onlyOwner {
+    function updateMarket(uint256 marketId, bool isActive) external nonReentrant onlyValidMarket(marketId) onlyOwner {
         Market storage market = markets[marketId];
         require(market.isActive != isActive, "No change in market status");
 
@@ -259,26 +213,17 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         require(betAmount > 0, "Bet amount must be greater than 0");
         require(betAmount >= market.minBetAmount, "Bet amount too low");
         require(betAmount <= market.maxBetAmount, "Bet amount too high");
-        require(
-            market.validationTimestamp > block.timestamp,
-            "Market validation timestamp has passed"
-        );
+        require(market.validationTimestamp > block.timestamp, "Market validation timestamp has passed");
 
         if (comparisonType == ComparisonType.BETWEEN) {
-            require(
-                targetValue < targetValue2,
-                "For this comparison type target values must not be the same."
-            );
+            require(targetValue < targetValue2, "For this comparison type target values must not be the same.");
         }
 
         uint256 fee = (betAmount * market.platformFee) / 10000;
         uint256 potentialPayout = betAmount + ((betAmount * 9500) / 10000); // Example: 95% ROI
 
         // Transfer tokens from user
-        require(
-            bettingToken.transferFrom(msg.sender, address(this), betAmount),
-            "Token transfer failed"
-        );
+        require(bettingToken.transferFrom(msg.sender, address(this), betAmount), "Token transfer failed");
 
         // Create prediction
         Prediction storage prediction = predictions[nextPredictionId];
@@ -303,12 +248,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         // Update platform fees
         totalPlatformFees += fee;
 
-        emit PredictionPlaced(
-            nextPredictionId,
-            marketId,
-            msg.sender,
-            betAmount
-        );
+        emit PredictionPlaced(nextPredictionId, marketId, msg.sender, betAmount);
         nextPredictionId++;
     }
 
@@ -316,16 +256,11 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
      * @notice Settles a market by checking actual values from the hook
      * @param marketId The ID of the market to settle
      */
-    function settleMarket(
-        uint256 marketId
-    ) external nonReentrant onlyValidMarket(marketId) {
+    function settleMarket(uint256 marketId) external nonReentrant onlyValidMarket(marketId) {
         Market storage market = markets[marketId];
 
         require(!market.isSettled, "Market already settled");
-        require(
-            block.timestamp >= market.validationTimestamp,
-            "Too early to settle"
-        );
+        require(block.timestamp >= market.validationTimestamp, "Too early to settle");
 
         // Get actual value from hook
         uint256 actualValue;
@@ -358,8 +293,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
             } else if (pred.comparisonType == ComparisonType.EQUAL_TO) {
                 isCorrect = actualValue == pred.targetValue;
             } else if (pred.comparisonType == ComparisonType.BETWEEN) {
-                isCorrect = (actualValue >= pred.targetValue &&
-                    actualValue <= pred.targetValue2);
+                isCorrect = (actualValue >= pred.targetValue && actualValue <= pred.targetValue2);
             } else {
                 revert("Invalid comparison type");
             }
@@ -392,11 +326,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
                 // Winner gets their bet back plus share of losses
                 pred.potentialPayout = pred.betAmount + winningsPerWinner;
 
-                emit PredictionSettled(
-                    predId,
-                    PredictionOutcome.WON,
-                    pred.potentialPayout
-                );
+                emit PredictionSettled(predId, PredictionOutcome.WON, pred.potentialPayout);
             }
         }
 
@@ -420,16 +350,9 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         prediction.withdrawn = true;
 
         // Transfer winnings to user
-        require(
-            bettingToken.transfer(prediction.user, prediction.potentialPayout),
-            "Transfer failed"
-        );
+        require(bettingToken.transfer(prediction.user, prediction.potentialPayout), "Transfer failed");
 
-        emit PredictionWithdrawn(
-            predictionId,
-            msg.sender,
-            prediction.potentialPayout
-        );
+        emit PredictionWithdrawn(predictionId, msg.sender, prediction.potentialPayout);
     }
 
     /**
@@ -440,25 +363,15 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         Prediction storage prediction = predictions[predictionId];
 
         require(prediction.user == msg.sender, "Not prediction owner");
-        require(
-            prediction.outcome == PredictionOutcome.CANCELLED,
-            "Not cancelled"
-        );
+        require(prediction.outcome == PredictionOutcome.CANCELLED, "Not cancelled");
         require(!prediction.withdrawn, "Already withdrawn");
 
         prediction.withdrawn = true;
 
         // Return only the original bet amount
-        require(
-            bettingToken.transfer(prediction.user, prediction.betAmount),
-            "Transfer failed"
-        );
+        require(bettingToken.transfer(prediction.user, prediction.betAmount), "Transfer failed");
 
-        emit PredictionWithdrawn(
-            predictionId,
-            prediction.user,
-            prediction.betAmount
-        );
+        emit PredictionWithdrawn(predictionId, prediction.user, prediction.betAmount);
     }
 
     /**
@@ -481,11 +394,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
                 pred.outcome = PredictionOutcome.CANCELLED;
                 pred.settled = true;
 
-                emit PredictionSettled(
-                    pred.id,
-                    PredictionOutcome.CANCELLED,
-                    pred.betAmount
-                );
+                emit PredictionSettled(pred.id, PredictionOutcome.CANCELLED, pred.betAmount);
             }
         }
 
@@ -498,9 +407,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
      * @param user The address of the user
      * @return predictionIds The IDs of the user's predictions
      */
-    function getUserPredictions(
-        address user
-    ) external view returns (uint256[] memory) {
+    function getUserPredictions(address user) external view returns (uint256[] memory) {
         return userPredictions[user];
     }
 
@@ -509,9 +416,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
      * @param marketId The ID of the market
      * @return predictionIds The IDs of the predictions in the market
      */
-    function getMarketPredictions(
-        uint256 marketId
-    ) external view returns (uint256[] memory) {
+    function getMarketPredictions(uint256 marketId) external view returns (uint256[] memory) {
         return marketPredictions[marketId];
     }
 
@@ -529,10 +434,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
      * @param predictionType The type of prediction
      * @return value The current value
      */
-    function getCurrentValue(
-        PoolId poolId,
-        PredictionType predictionType
-    ) public view returns (uint256) {
+    function getCurrentValue(PoolId poolId, PredictionType predictionType) public view returns (uint256) {
         if (predictionType == PredictionType.TVL) {
             return poolPlayHook.getPoolTVL(poolId);
         } else if (predictionType == PredictionType.VOLUME_24H) {
@@ -551,9 +453,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
      * @param marketId The ID of the market
      * @return value The value of the market
      */
-    function getMarketPoolValue(
-        uint256 marketId
-    ) external view returns (uint256) {
+    function getMarketPoolValue(uint256 marketId) external view returns (uint256) {
         Market storage market = markets[marketId];
         return getCurrentValue(market.poolId, market.predictionType);
     }
@@ -563,9 +463,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
      * @param marketId The ID of the market
      * @return winners The winners of the market
      */
-    function getWinners(
-        uint256 marketId
-    ) external view returns (uint256[] memory) {
+    function getWinners(uint256 marketId) external view returns (uint256[] memory) {
         Market storage market = markets[marketId];
         return market.winners;
     }
@@ -588,8 +486,4 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
     function updatePoolPlayHook(address _poolPlayHook) external onlyOwner {
         poolPlayHook = IPoolPlayHook(_poolPlayHook);
     }
-
-    // function getBets() external view returns (Bet[] memory) {
-    //     return bets;
-    // }
 }

@@ -8,6 +8,7 @@ import {Currency, CurrencyLibrary} from "v4-core/types/Currency.sol";
 import {CurrencySettler} from "@v4-core/test/utils/CurrencySettler.sol";
 import {TransientStateLibrary} from "v4-core/libraries/TransientStateLibrary.sol";
 import {BalanceDelta} from "v4-core/types/BalanceDelta.sol";
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERc20.sol";
 
 contract PoolPlayRouter is Ownable {
     using CurrencyLibrary for Currency;
@@ -18,138 +19,86 @@ contract PoolPlayRouter is Ownable {
     address public immutable hook;
 
     struct CallbackData {
-        address sender;
+        address swapper;
         address recipientAddress;
         PoolKey key;
         IPoolManager.SwapParams swapParams;
         bytes hookData;
+        uint256 lotteryFee; // Fee amount for lottery entry
+        Currency feeCurrency; // Currency of the lottery fee
     }
 
     error CallerNotManager();
-    error CallerNotHook();
+    error InsufficientFee();
 
     constructor(address _manager, address _hook) Ownable(msg.sender) {
         manager = IPoolManager(_manager);
         hook = _hook;
     }
 
-    /**
-     * @notice Swap against the given pool
-     * @param key The pool to swap in
-     * @param sender The address of the sender
-     * @param swapParams The parameters for swapping
-     * @param recipientAddress The address of the recipient
-     * @param hookData The data to pass through to the swap hooks
-     */
     function swap(
         PoolKey memory key,
-        address sender,
         IPoolManager.SwapParams memory swapParams,
         address recipientAddress,
-        bytes memory hookData
-    ) external payable returns (BalanceDelta delta) {
-        if (msg.sender != hook) revert CallerNotHook();
+        uint24 lotteryFeeBps // Provided by hook or frontend
+    ) external payable returns (BalanceDelta) {
+        uint256 inputAmount = swapParams.amountSpecified < 0 ? uint256(-swapParams.amountSpecified) : 0;
+        uint256 lotteryFee = (inputAmount * lotteryFeeBps) / 10_000;
+        Currency feeCurrency = swapParams.zeroForOne ? key.currency0 : key.currency1;
 
-        delta = abi.decode(
+        // Collect swap amount + fee upfront
+        if (feeCurrency.isAddressZero()) {
+            require(msg.value >= inputAmount + lotteryFee, "Insufficient ETH");
+        } else {
+            require(
+                IERC20(Currency.unwrap(feeCurrency)).transferFrom(msg.sender, address(this), inputAmount + lotteryFee),
+                "Token transfer failed"
+            );
+        }
+
+        bytes memory hookData = abi.encode(msg.sender);
+        BalanceDelta delta = abi.decode(
             manager.unlock(
                 abi.encode(
-                    CallbackData(
-                        sender,
-                        recipientAddress,
-                        key,
-                        swapParams,
-                        hookData
-                    )
+                    CallbackData(msg.sender, recipientAddress, key, swapParams, hookData, lotteryFee, feeCurrency)
                 )
             ),
             (BalanceDelta)
         );
 
-        uint256 ethBalance = address(this).balance;
-        if (ethBalance > 0)
-            CurrencyLibrary.ADDRESS_ZERO.transfer(msg.sender, ethBalance);
+        // Refund excess ETH if any
+        if (address(this).balance > 0 && feeCurrency.isAddressZero()) {
+            CurrencyLibrary.ADDRESS_ZERO.transfer(msg.sender, address(this).balance);
+        }
+        return delta;
     }
 
-    /**
-     * @notice Unlock callback
-     * @param _rawdata The raw data to unlock
-     * @return The data to return to the manager
-     */
-    function unlockCallback(
-        bytes calldata _rawdata
-    ) external returns (bytes memory) {
+    function unlockCallback(bytes calldata _rawdata) external returns (bytes memory) {
         if (msg.sender != address(manager)) revert CallerNotManager();
-
         CallbackData memory data = abi.decode(_rawdata, (CallbackData));
 
-        BalanceDelta delta = manager.swap(
-            data.key,
-            data.swapParams,
-            data.hookData
-        );
+        // Perform the swap with original params
+        BalanceDelta delta = manager.swap(data.key, data.swapParams, data.hookData);
 
-        int256 deltaAfter0 = manager.currencyDelta(
-            address(this),
-            data.key.currency0
-        );
-        int256 deltaAfter1 = manager.currencyDelta(
-            address(this),
-            data.key.currency1
-        );
+        // Settle deltas
+        int256 deltaAfter0 = manager.currencyDelta(address(this), data.key.currency0);
+        int256 deltaAfter1 = manager.currencyDelta(address(this), data.key.currency1);
 
         if (deltaAfter0 < 0) {
-            data.key.currency0.settle(
-                manager,
-                data.sender,
-                uint256(-deltaAfter0),
-                false
-            );
+            data.key.currency0.settle(manager, data.swapper, uint256(-deltaAfter0), false);
         }
-
         if (deltaAfter1 < 0) {
-            data.key.currency1.settle(
-                manager,
-                data.sender,
-                uint256(-deltaAfter1),
-                false
-            );
+            data.key.currency1.settle(manager, data.swapper, uint256(-deltaAfter1), false);
         }
-
         if (deltaAfter0 > 0) {
-            _take(
-                data.key.currency0,
-                data.recipientAddress,
-                uint256(deltaAfter0)
-            );
+            data.key.currency0.take(manager, data.recipientAddress, uint256(deltaAfter0), false);
         }
-
         if (deltaAfter1 > 0) {
-            _take(
-                data.key.currency1,
-                data.recipientAddress,
-                uint256(deltaAfter1)
-            );
+            data.key.currency1.take(manager, data.recipientAddress, uint256(deltaAfter1), false);
         }
 
         return abi.encode(delta);
     }
 
-    /**
-     * @notice Take a currency from the router
-     * @param _currency The currency to take
-     * @param _recipient The recipient of the currency
-     * @param _amount The amount of currency to take
-     */
-    function _take(
-        Currency _currency,
-        address _recipient,
-        uint256 _amount
-    ) internal {
-        _currency.take(manager, _recipient, _amount, false);
-    }
-
-    /**
-     * @notice Receive function to allow the router to receive ETH
-     */
     receive() external payable {}
 }
