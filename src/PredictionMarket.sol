@@ -589,7 +589,7 @@ contract PoolPlayPredictionMarket is Ownable, ReentrancyGuard {
         poolPlayHook = IPoolPlayHook(_poolPlayHook);
     }
 
-    function getBets() external view returns (Bet[] memory) {
-        return bets;
-    }
+    // function getBets() external view returns (Bet[] memory) {
+    //     return bets;
+    // }
 }
