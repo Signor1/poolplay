@@ -42,24 +42,16 @@ contract PoolPlayRouter is Ownable {
         address recipientAddress,
         uint24 lotteryFeeBps // Provided by hook or frontend
     ) external payable returns (BalanceDelta) {
-        uint256 inputAmount = swapParams.amountSpecified < 0
-            ? uint256(-swapParams.amountSpecified)
-            : 0;
+        uint256 inputAmount = swapParams.amountSpecified < 0 ? uint256(-swapParams.amountSpecified) : 0;
         uint256 lotteryFee = (inputAmount * lotteryFeeBps) / 10_000;
-        Currency feeCurrency = swapParams.zeroForOne
-            ? key.currency0
-            : key.currency1;
+        Currency feeCurrency = swapParams.zeroForOne ? key.currency0 : key.currency1;
 
         // Collect swap amount + fee upfront
         if (feeCurrency.isAddressZero()) {
             require(msg.value >= inputAmount + lotteryFee, "Insufficient ETH");
         } else {
             require(
-                IERC20(Currency.unwrap(feeCurrency)).transferFrom(
-                    msg.sender,
-                    address(this),
-                    inputAmount + lotteryFee
-                ),
+                IERC20(Currency.unwrap(feeCurrency)).transferFrom(msg.sender, address(this), inputAmount + lotteryFee),
                 "Token transfer failed"
             );
         }
@@ -68,15 +60,7 @@ contract PoolPlayRouter is Ownable {
         BalanceDelta delta = abi.decode(
             manager.unlock(
                 abi.encode(
-                    CallbackData(
-                        msg.sender,
-                        recipientAddress,
-                        key,
-                        swapParams,
-                        hookData,
-                        lotteryFee,
-                        feeCurrency
-                    )
+                    CallbackData(msg.sender, recipientAddress, key, swapParams, hookData, lotteryFee, feeCurrency)
                 )
             ),
             (BalanceDelta)
@@ -84,68 +68,33 @@ contract PoolPlayRouter is Ownable {
 
         // Refund excess ETH if any
         if (address(this).balance > 0 && feeCurrency.isAddressZero()) {
-            CurrencyLibrary.ADDRESS_ZERO.transfer(
-                msg.sender,
-                address(this).balance
-            );
+            CurrencyLibrary.ADDRESS_ZERO.transfer(msg.sender, address(this).balance);
         }
         return delta;
     }
 
-    function unlockCallback(
-        bytes calldata _rawdata
-    ) external returns (bytes memory) {
+    function unlockCallback(bytes calldata _rawdata) external returns (bytes memory) {
         if (msg.sender != address(manager)) revert CallerNotManager();
         CallbackData memory data = abi.decode(_rawdata, (CallbackData));
 
         // Perform the swap with original params
-        BalanceDelta delta = manager.swap(
-            data.key,
-            data.swapParams,
-            data.hookData
-        );
+        BalanceDelta delta = manager.swap(data.key, data.swapParams, data.hookData);
 
         // Settle deltas
-        int256 deltaAfter0 = manager.currencyDelta(
-            address(this),
-            data.key.currency0
-        );
-        int256 deltaAfter1 = manager.currencyDelta(
-            address(this),
-            data.key.currency1
-        );
+        int256 deltaAfter0 = manager.currencyDelta(address(this), data.key.currency0);
+        int256 deltaAfter1 = manager.currencyDelta(address(this), data.key.currency1);
 
         if (deltaAfter0 < 0) {
-            data.key.currency0.settle(
-                manager,
-                data.swapper,
-                uint256(-deltaAfter0),
-                false
-            );
+            data.key.currency0.settle(manager, data.swapper, uint256(-deltaAfter0), false);
         }
         if (deltaAfter1 < 0) {
-            data.key.currency1.settle(
-                manager,
-                data.swapper,
-                uint256(-deltaAfter1),
-                false
-            );
+            data.key.currency1.settle(manager, data.swapper, uint256(-deltaAfter1), false);
         }
         if (deltaAfter0 > 0) {
-            data.key.currency0.take(
-                manager,
-                data.recipientAddress,
-                uint256(deltaAfter0),
-                false
-            );
+            data.key.currency0.take(manager, data.recipientAddress, uint256(deltaAfter0), false);
         }
         if (deltaAfter1 > 0) {
-            data.key.currency1.take(
-                manager,
-                data.recipientAddress,
-                uint256(deltaAfter1),
-                false
-            );
+            data.key.currency1.take(manager, data.recipientAddress, uint256(deltaAfter1), false);
         }
 
         return abi.encode(delta);
