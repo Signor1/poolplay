@@ -136,7 +136,8 @@ contract LotteryPoolTest is Test, Deployers {
         vm.prank(user1);
         lotteryPool.depositFee{value: amount}(lotteryId, amount, user1);
 
-        (uint256 totalFees, address[] memory participants,,) = lotteryPool.getEpoch(lotteryId, 1);
+        (uint256 totalFees,,) = lotteryPool.getEpoch(lotteryId, 1);
+        address[] memory participants = lotteryPool.getEpochParticipants(lotteryId, 1);
 
         assertEq(totalFees, amount);
         assertEq(participants.length, 1);
@@ -153,7 +154,8 @@ contract LotteryPoolTest is Test, Deployers {
         vm.prank(user1);
         lotteryPool.depositFee(lotteryId, amount, user1);
 
-        (uint256 totalFees, address[] memory participants,,) = lotteryPool.getEpoch(lotteryId, 1);
+        (uint256 totalFees,,) = lotteryPool.getEpoch(lotteryId, 1);
+        address[] memory participants = lotteryPool.getEpochParticipants(lotteryId, 1);
 
         assertEq(totalFees, amount);
         assertEq(participants.length, 1);
@@ -172,7 +174,7 @@ contract LotteryPoolTest is Test, Deployers {
 
         assertEq(currentEpoch, 2);
 
-        (,, uint40 startTime, uint40 endTime) = lotteryPool.getEpoch(lotteryId, 2);
+        (, uint40 startTime, uint40 endTime) = lotteryPool.getEpoch(lotteryId, 1);
 
         assertEq(startTime, uint40(block.timestamp));
         assertEq(endTime, uint40(block.timestamp + 1 days));
@@ -193,7 +195,8 @@ contract LotteryPoolTest is Test, Deployers {
 
         vm.stopPrank();
 
-        (uint256 totalFees, address[] memory participants,,) = lotteryPool.getEpoch(lotteryId, 1);
+        (uint256 totalFees,,) = lotteryPool.getEpoch(lotteryId, 1);
+        address[] memory participants = lotteryPool.getEpochParticipants(lotteryId, 1);
         assertGt(totalFees, 0);
         assertEq(participants.length, 1);
         assertEq(participants[0], user1);

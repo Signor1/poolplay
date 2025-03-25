@@ -230,10 +230,14 @@ contract LotteryPool is VRFConsumerBaseV2Plus {
     function getEpoch(uint256 lotteryId, uint256 epochId)
         external
         view
-        returns (uint256 totalFees, address[] memory participants, uint40 startTime, uint40 endTime)
+        returns (uint256 totalFees, uint40 startTime, uint40 endTime)
     {
         LotteryPoolLib.Epoch storage epoch = lotteries[lotteryId].epochs[epochId];
-        return (epoch.totalFees, epoch.participants, epoch.startTime, epoch.endTime);
+        return (epoch.totalFees, epoch.startTime, epoch.endTime);
+    }
+
+    function getEpochParticipants(uint256 lotteryId, uint256 epochId) external view returns (address[] memory) {
+        return lotteries[lotteryId].epochs[epochId].participants;
     }
 
     // Receives ETH for fee deposits and winner payouts.

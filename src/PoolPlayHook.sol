@@ -123,7 +123,7 @@ contract PoolPlayHook is BaseHook {
         BalanceDelta delta,
         bytes calldata hookData
     ) internal override returns (bytes4, int128) {
-        if (sender != allowedRouter || hookData.length == 0) {
+        if (!_isValidSenderAndData(sender, hookData)) {
             return (this.afterSwap.selector, 0);
         }
 
@@ -133,17 +133,50 @@ contract PoolPlayHook is BaseHook {
             return (this.afterSwap.selector, 0);
         }
 
-        address swapper = abi.decode(hookData, (address));
+        address swapper = _decodeSwapper(hookData);
         if (swapper == address(0)) {
             return (this.afterSwap.selector, 0);
         }
 
-        // Calculate fee from input amount
-        uint256 inputAmount = params.zeroForOne ? uint256(int256(-delta.amount0())) : uint256(int256(-delta.amount1()));
-        uint256 feeAmount = inputAmount.calculateFee(config.lotteryFeeBps);
-        Currency feeCurrency = params.zeroForOne ? key.currency0 : key.currency1;
+        (uint256 feeAmount, Currency feeCurrency) = _calculateFee(params, delta, config.lotteryFeeBps, key);
+        _transferFee(feeCurrency, feeAmount);
 
-        // Transfer fee from router to LotteryPool
+        ILotteryPool(lotteryPool).depositFee(config.lotteryId, feeAmount, swapper);
+        _emitEvents(poolId, config.lotteryId, feeAmount, feeCurrency);
+
+        // _updatePoolMetrics(poolId, inputAmount, feeAmount); // Uncomment if needed
+        return (this.afterSwap.selector, 0);
+    }
+
+    // Helper: Validate sender and hook data
+    function _isValidSenderAndData(address sender, bytes calldata hookData) private view returns (bool) {
+        return sender == allowedRouter && hookData.length > 0;
+    }
+
+    // Helper: Decode swapper from hook data
+    function _decodeSwapper(bytes calldata hookData) private pure returns (address) {
+        return abi.decode(hookData, (address));
+    }
+
+    // Helper: Calculate fee amount and currency
+    function _calculateFee(
+        IPoolManager.SwapParams calldata params,
+        BalanceDelta delta,
+        uint24 lotteryFeeBps,
+        PoolKey calldata key
+    ) private pure returns (uint256 feeAmount, Currency feeCurrency) {
+        uint256 inputAmount = params.zeroForOne ? uint256(int256(-delta.amount0())) : uint256(int256(-delta.amount1()));
+        feeAmount = _calculateFeeAmount(inputAmount, lotteryFeeBps);
+        feeCurrency = params.zeroForOne ? key.currency0 : key.currency1;
+    }
+
+    // Helper: Calculate fee from input amount
+    function _calculateFeeAmount(uint256 amount, uint24 feeBps) private pure returns (uint256) {
+        return (amount * feeBps) / 10_000; // Assuming BPS (basis points), 10000 = 100%
+    }
+
+    // Helper: Transfer fee to LotteryPool
+    function _transferFee(Currency feeCurrency, uint256 feeAmount) private {
         if (feeCurrency.isAddressZero()) {
             require(address(allowedRouter).balance >= feeAmount, "Router lacks ETH");
             (bool success,) = allowedRouter.call{value: 0}(
@@ -155,13 +188,12 @@ contract PoolPlayHook is BaseHook {
             require(token.allowance(allowedRouter, address(this)) >= feeAmount, "Insufficient allowance");
             require(token.transferFrom(allowedRouter, lotteryPool, feeAmount), "Token transfer failed");
         }
+    }
 
-        ILotteryPool(lotteryPool).depositFee(config.lotteryId, feeAmount, swapper);
-        emit LotteryEntered(poolId, swapper, feeAmount, Currency.unwrap(feeCurrency));
-        emit FeeTransferred(poolId, config.lotteryId, feeAmount, Currency.unwrap(feeCurrency));
-
-        // _updatePoolMetrics(poolId, inputAmount, feeAmount);
-        return (this.afterSwap.selector, 0);
+    // Helper: Emit events
+    function _emitEvents(PoolId poolId, uint256 lotteryId, uint256 feeAmount, Currency feeCurrency) private {
+        emit LotteryEntered(poolId, msg.sender, feeAmount, Currency.unwrap(feeCurrency));
+        emit FeeTransferred(poolId, lotteryId, feeAmount, Currency.unwrap(feeCurrency));
     }
 
     /**
