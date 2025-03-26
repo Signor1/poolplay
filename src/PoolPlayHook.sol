@@ -12,7 +12,8 @@ import {PoolId, PoolIdLibrary} from "v4-core/types/PoolId.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {StateLibrary} from "v4-core/libraries/StateLibrary.sol";
 import {PoolPlayLib} from "./library/PoolPlayLib.sol";
-import {AggregatorV3Interface} from "chainlink-brownie-contracts/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
+import {AggregatorV3Interface} from
+    "chainlink-brownie-contracts/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {ILotteryPool} from "./interfaces/ILotteryPool.sol";
 import {IERC20Metadata} from "./interfaces/IERC20.sol";
 
@@ -41,82 +42,44 @@ contract PoolPlayHook is BaseHook {
     address public immutable allowedRouter;
     address public immutable lotteryPool;
 
-    event PoolInitialized(
-        PoolId indexed poolId,
-        uint256 lotteryId,
-        uint24 lotteryFeeBps,
-        uint48 distributionInterval
-    );
-    event LotteryEntered(
-        PoolId indexed poolId,
-        address indexed swapper,
-        uint256 feeAmount,
-        address feeCurrency
-    );
-    event FeeTransferred(
-        PoolId indexed poolId,
-        uint256 lotteryId,
-        uint256 amount,
-        address feeCurrency
-    );
+    event PoolInitialized(PoolId indexed poolId, uint256 lotteryId, uint24 lotteryFeeBps, uint48 distributionInterval);
+    event LotteryEntered(PoolId indexed poolId, address indexed swapper, uint256 feeAmount, address feeCurrency);
+    event FeeTransferred(PoolId indexed poolId, uint256 lotteryId, uint256 amount, address feeCurrency);
 
-    constructor(
-        IPoolManager manager,
-        address _allowedRouter,
-        address _lotteryPool
-    ) BaseHook(manager) {
+    constructor(IPoolManager manager, address _allowedRouter, address _lotteryPool) BaseHook(manager) {
         allowedRouter = _allowedRouter;
         lotteryPool = _lotteryPool;
     }
 
-    function getHookPermissions()
-        public
-        pure
-        override
-        returns (Hooks.Permissions memory)
-    {
-        return
-            Hooks.Permissions({
-                beforeInitialize: true,
-                afterInitialize: false,
-                beforeAddLiquidity: false,
-                afterAddLiquidity: false,
-                beforeRemoveLiquidity: false,
-                afterRemoveLiquidity: false,
-                beforeSwap: true,
-                afterSwap: true,
-                beforeDonate: false,
-                afterDonate: false,
-                beforeSwapReturnDelta: false, // No delta adjustment
-                afterSwapReturnDelta: false,
-                afterAddLiquidityReturnDelta: false,
-                afterRemoveLiquidityReturnDelta: false
-            });
+    function getHookPermissions() public pure override returns (Hooks.Permissions memory) {
+        return Hooks.Permissions({
+            beforeInitialize: true,
+            afterInitialize: false,
+            beforeAddLiquidity: false,
+            afterAddLiquidity: false,
+            beforeRemoveLiquidity: false,
+            afterRemoveLiquidity: false,
+            beforeSwap: true,
+            afterSwap: true,
+            beforeDonate: false,
+            afterDonate: false,
+            beforeSwapReturnDelta: false, // No delta adjustment
+            afterSwapReturnDelta: false,
+            afterAddLiquidityReturnDelta: false,
+            afterRemoveLiquidityReturnDelta: false
+        });
     }
 
-    function _beforeInitialize(
-        address,
-        PoolKey calldata key,
-        uint160
-    ) internal override returns (bytes4) {
+    function _beforeInitialize(address, PoolKey calldata key, uint160) internal override returns (bytes4) {
         poolKeys[key.toId()] = key;
         return this.beforeInitialize.selector;
     }
 
-    function initializePool(
-        PoolId poolId,
-        uint24 lotteryFeeBps,
-        uint48 distributionInterval,
-        uint256 lotteryId
-    ) external {
-        require(
-            poolConfigs[poolId].lotteryFeeBps == 0,
-            "Pool already initialized"
-        );
-        require(
-            lotteryFeeBps > 0 && lotteryFeeBps <= 1000,
-            "Invalid fee: 0 < feeBps <= 10%"
-        );
+    function initializePool(PoolId poolId, uint24 lotteryFeeBps, uint48 distributionInterval, uint256 lotteryId)
+        external
+    {
+        require(poolConfigs[poolId].lotteryFeeBps == 0, "Pool already initialized");
+        require(lotteryFeeBps > 0 && lotteryFeeBps <= 1000, "Invalid fee: 0 < feeBps <= 10%");
         require(distributionInterval > 0, "Invalid interval");
 
         poolConfigs[poolId] = PoolConfig({
@@ -129,12 +92,7 @@ contract PoolPlayHook is BaseHook {
             volumeTimestamp: uint48(block.timestamp)
         });
 
-        emit PoolInitialized(
-            poolId,
-            lotteryId,
-            lotteryFeeBps,
-            distributionInterval
-        );
+        emit PoolInitialized(poolId, lotteryId, lotteryFeeBps, distributionInterval);
     }
 
     function _beforeSwap(
@@ -144,27 +102,17 @@ contract PoolPlayHook is BaseHook {
         bytes calldata hookData
     ) internal view override returns (bytes4, BeforeSwapDelta, uint24) {
         if (sender != allowedRouter || hookData.length == 0) {
-            return (
-                this.beforeSwap.selector,
-                BeforeSwapDeltaLibrary.ZERO_DELTA,
-                0
-            );
+            return (this.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
         }
 
         PoolId poolId = key.toId();
         PoolConfig memory config = poolConfigs[poolId];
         if (config.lotteryFeeBps == 0) {
-            return (
-                this.beforeSwap.selector,
-                BeforeSwapDeltaLibrary.ZERO_DELTA,
-                0
-            );
+            return (this.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
         }
 
         // Validate input amount
-        uint256 inputAmount = params.amountSpecified < 0
-            ? uint256(-params.amountSpecified)
-            : 0;
+        uint256 inputAmount = params.amountSpecified < 0 ? uint256(-params.amountSpecified) : 0;
         require(inputAmount > 0, "Invalid swap amount");
 
         return (this.beforeSwap.selector, BeforeSwapDeltaLibrary.ZERO_DELTA, 0);
@@ -192,19 +140,10 @@ contract PoolPlayHook is BaseHook {
             return (this.afterSwap.selector, 0);
         }
 
-        (uint256 feeAmount, Currency feeCurrency) = _calculateFee(
-            params,
-            delta,
-            config.lotteryFeeBps,
-            key
-        );
+        (uint256 feeAmount, Currency feeCurrency) = _calculateFee(params, delta, config.lotteryFeeBps, key);
         _transferFee(feeCurrency, feeAmount);
 
-        ILotteryPool(lotteryPool).depositFee(
-            config.lotteryId,
-            feeAmount,
-            swapper
-        );
+        ILotteryPool(lotteryPool).depositFee(config.lotteryId, feeAmount, swapper);
         _emitEvents(poolId, config.lotteryId, feeAmount, feeCurrency);
 
         // _updatePoolMetrics(poolId, inputAmount, feeAmount); // Uncomment if needed
@@ -212,17 +151,12 @@ contract PoolPlayHook is BaseHook {
     }
 
     // Helper: Validate sender and hook data
-    function _isValidSenderAndData(
-        address sender,
-        bytes calldata hookData
-    ) private view returns (bool) {
+    function _isValidSenderAndData(address sender, bytes calldata hookData) private view returns (bool) {
         return sender == allowedRouter && hookData.length > 0;
     }
 
     // Helper: Decode swapper from hook data
-    function _decodeSwapper(
-        bytes calldata hookData
-    ) private pure returns (address) {
+    function _decodeSwapper(bytes calldata hookData) private pure returns (address) {
         return abi.decode(hookData, (address));
     }
 
@@ -233,68 +167,35 @@ contract PoolPlayHook is BaseHook {
         uint24 lotteryFeeBps,
         PoolKey calldata key
     ) private pure returns (uint256 feeAmount, Currency feeCurrency) {
-        uint256 inputAmount = params.zeroForOne
-            ? uint256(int256(-delta.amount0()))
-            : uint256(int256(-delta.amount1()));
+        uint256 inputAmount = params.zeroForOne ? uint256(int256(-delta.amount0())) : uint256(int256(-delta.amount1()));
         feeAmount = _calculateFeeAmount(inputAmount, lotteryFeeBps);
         feeCurrency = params.zeroForOne ? key.currency0 : key.currency1;
     }
 
     // Helper: Calculate fee from input amount
-    function _calculateFeeAmount(
-        uint256 amount,
-        uint24 feeBps
-    ) private pure returns (uint256) {
+    function _calculateFeeAmount(uint256 amount, uint24 feeBps) private pure returns (uint256) {
         return (amount * feeBps) / 10_000; // Assuming BPS (basis points), 10000 = 100%
     }
 
     // Helper: Transfer fee to LotteryPool
     function _transferFee(Currency feeCurrency, uint256 feeAmount) private {
         if (feeCurrency.isAddressZero()) {
-            require(
-                address(allowedRouter).balance >= feeAmount,
-                "Router lacks ETH"
-            );
-            (bool success, ) = allowedRouter.call{value: 0}(
-                abi.encodeWithSignature(
-                    "transferFee(address,uint256)",
-                    lotteryPool,
-                    feeAmount
-                )
+            require(address(allowedRouter).balance >= feeAmount, "Router lacks ETH");
+            (bool success,) = allowedRouter.call{value: 0}(
+                abi.encodeWithSignature("transferFee(address,uint256)", lotteryPool, feeAmount)
             );
             require(success, "ETH fee transfer failed");
         } else {
             IERC20 token = IERC20(Currency.unwrap(feeCurrency));
-            require(
-                token.allowance(allowedRouter, address(this)) >= feeAmount,
-                "Insufficient allowance"
-            );
-            require(
-                token.transferFrom(allowedRouter, lotteryPool, feeAmount),
-                "Token transfer failed"
-            );
+            require(token.allowance(allowedRouter, address(this)) >= feeAmount, "Insufficient allowance");
+            require(token.transferFrom(allowedRouter, lotteryPool, feeAmount), "Token transfer failed");
         }
     }
 
     // Helper: Emit events
-    function _emitEvents(
-        PoolId poolId,
-        uint256 lotteryId,
-        uint256 feeAmount,
-        Currency feeCurrency
-    ) private {
-        emit LotteryEntered(
-            poolId,
-            msg.sender,
-            feeAmount,
-            Currency.unwrap(feeCurrency)
-        );
-        emit FeeTransferred(
-            poolId,
-            lotteryId,
-            feeAmount,
-            Currency.unwrap(feeCurrency)
-        );
+    function _emitEvents(PoolId poolId, uint256 lotteryId, uint256 feeAmount, Currency feeCurrency) private {
+        emit LotteryEntered(poolId, msg.sender, feeAmount, Currency.unwrap(feeCurrency));
+        emit FeeTransferred(poolId, lotteryId, feeAmount, Currency.unwrap(feeCurrency));
     }
 
     /**
@@ -313,24 +214,20 @@ contract PoolPlayHook is BaseHook {
      * @param balance The token balance (in token decimals).
      * @return value The USD value with 18 decimals.
      */
-    function getTokenValue(
-        address tokenAddress,
-        uint256 balance
-    ) internal view returns (uint256) {
+    function getTokenValue(address tokenAddress, uint256 balance) internal view returns (uint256) {
         if (balance == 0) return 0;
         address feedAddress = tokenToUsdFeed[tokenAddress];
         require(feedAddress != address(0), "No price feed for token");
 
         AggregatorV3Interface feed = AggregatorV3Interface(feedAddress);
-        (, int256 price, , , ) = feed.latestRoundData();
+        (, int256 price,,,) = feed.latestRoundData();
         require(price > 0, "Invalid price from Chainlink");
 
         uint8 tokenDecimals = IERC20Metadata(tokenAddress).decimals();
         uint8 feedDecimals = feed.decimals(); // Typically 8 for USD feeds
 
         // Normalize to 18 decimals for consistency
-        uint256 value = (balance * uint256(price) * 1e18) /
-            (10 ** (tokenDecimals + feedDecimals));
+        uint256 value = (balance * uint256(price) * 1e18) / (10 ** (tokenDecimals + feedDecimals));
         return value;
     }
 
@@ -340,11 +237,7 @@ contract PoolPlayHook is BaseHook {
      * @param volume The swap volume (in token0 terms).
      * @param fee The lottery fee collected (in token0 terms).
      */
-    function _updatePoolMetrics(
-        PoolId poolId,
-        uint256 volume,
-        uint256 fee
-    ) internal {
+    function _updatePoolMetrics(PoolId poolId, uint256 volume, uint256 fee) internal {
         PoolConfig storage config = poolConfigs[poolId];
         if (block.timestamp >= config.volumeTimestamp + 24 hours) {
             config.totalVolume = volume;
@@ -363,22 +256,17 @@ contract PoolPlayHook is BaseHook {
      */
     function getPoolTVL(PoolId poolId) external view returns (uint256) {
         PoolKey memory key = poolKeys[poolId];
-        require(
-            Currency.unwrap(key.currency0) != address(0),
-            "Pool not initialized"
-        );
+        require(Currency.unwrap(key.currency0) != address(0), "Pool not initialized");
 
-        (uint160 sqrtPriceX96, , , ) = poolManager.getSlot0(poolId);
+        (uint160 sqrtPriceX96,,,) = poolManager.getSlot0(poolId);
         uint128 liquidity = poolManager.getLiquidity(poolId);
 
         address token0 = Currency.unwrap(key.currency0);
         address token1 = Currency.unwrap(key.currency1);
 
         // Calculate token amounts from liquidity and sqrtPrice
-        uint256 amount0 = (uint256(liquidity) * 1e18) /
-            ((sqrtPriceX96 * sqrtPriceX96) / 2 ** 96);
-        uint256 amount1 = (uint256(liquidity) * sqrtPriceX96 * sqrtPriceX96) /
-            (2 ** 96 * 1e18);
+        uint256 amount0 = (uint256(liquidity) * 1e18) / ((sqrtPriceX96 * sqrtPriceX96) / 2 ** 96);
+        uint256 amount1 = (uint256(liquidity) * sqrtPriceX96 * sqrtPriceX96) / (2 ** 96 * 1e18);
 
         uint256 value0 = getTokenValue(token0, amount0);
         uint256 value1 = getTokenValue(token1, amount1);
@@ -424,33 +312,20 @@ contract PoolPlayHook is BaseHook {
      * @param user The user’s address.
      * @return value The position value.
      */
-    function getPositionValue(
-        PoolId poolId,
-        address user
-    ) external view returns (uint256) {
+    function getPositionValue(PoolId poolId, address user) external view returns (uint256) {
         PoolKey memory key = poolKeys[poolId];
-        (uint160 sqrtPriceX96, , , ) = poolManager.getSlot0(poolId);
+        (uint160 sqrtPriceX96,,,) = poolManager.getSlot0(poolId);
 
-        bytes32 positionId = keccak256(
-            abi.encodePacked(user, poolId, int24(0), int24(0))
-        ); // Simplified position ID
-        (uint128 liquidity, , ) = poolManager.getPositionInfo(
-            poolId,
-            user,
-            0,
-            0,
-            positionId
-        );
+        bytes32 positionId = keccak256(abi.encodePacked(user, poolId, int24(0), int24(0))); // Simplified position ID
+        (uint128 liquidity,,) = poolManager.getPositionInfo(poolId, user, 0, 0, positionId);
 
         if (liquidity == 0) return 0;
 
         address token0 = Currency.unwrap(key.currency0);
         address token1 = Currency.unwrap(key.currency1);
 
-        uint256 amount0 = (uint256(liquidity) * 1e18) /
-            ((sqrtPriceX96 * sqrtPriceX96) / 2 ** 96);
-        uint256 amount1 = (uint256(liquidity) * sqrtPriceX96 * sqrtPriceX96) /
-            (2 ** 96 * 1e18);
+        uint256 amount0 = (uint256(liquidity) * 1e18) / ((sqrtPriceX96 * sqrtPriceX96) / 2 ** 96);
+        uint256 amount1 = (uint256(liquidity) * sqrtPriceX96 * sqrtPriceX96) / (2 ** 96 * 1e18);
 
         uint256 value0 = getTokenValue(token0, amount0);
         uint256 value1 = getTokenValue(token1, amount1);
