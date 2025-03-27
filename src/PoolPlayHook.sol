@@ -14,8 +14,8 @@ import {StateLibrary} from "v4-core/libraries/StateLibrary.sol";
 import {PoolPlayLib} from "./library/PoolPlayLib.sol";
 import {AggregatorV3Interface} from
     "chainlink-brownie-contracts/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
-import {ILotteryPool} from "src/interfaces/ILotteryPool.sol";
-import {IERC20Metadata} from "src/interfaces/IERC20.sol";
+import {ILotteryPool} from "./interfaces/ILotteryPool.sol";
+import {IERC20Metadata} from "./interfaces/IERC20.sol";
 
 contract PoolPlayHook is BaseHook {
     using PoolIdLibrary for PoolKey;
