@@ -41,23 +41,23 @@ contract LotteryPoolTest is Test, Deployers {
     event EpochStarted(uint256 indexed lotteryId, uint256 epoch, uint40 startTime, uint40 endTime);
 
     function setUp() public {
-        // Step 1: Deploy Uniswap V4 PoolManager and routers
+        // Deploy Uniswap V4 PoolManager and routers
         deployFreshManagerAndRouters();
         poolManager = IPoolManager(manager);
 
-        // Step 2: Deploy tokens
+        // Deploy tokens
         token0 = new MockERC20("Token0", "TKN0", 18);
         token1 = new MockERC20("Token1", "TKN1", 18);
         linkToken = new LinkToken();
 
-        // Step 3: Deploy VRF Coordinator Mock
+        // Deploy VRF Coordinator Mock
         vrfCoordinator = new VRFCoordinatorV2_5Mock(1e6, 10e6, 1e18);
 
-        // Step 4: Deploy and configure LotteryPool
+        // Deploy and configure LotteryPool
         lotteryPool = new LotteryPool(address(vrfCoordinator));
         lotteryPool.setLinkToken(address(linkToken));
 
-        // Step 5: Fund LotteryPool with LINK correctly
+        // Fund LotteryPool with LINK correctly
         linkToken.grantMintAndBurnRoles(address(this));
         uint256 linkAmount = 20 ether;
         linkToken.mint(address(lotteryPool), linkAmount);
@@ -65,7 +65,7 @@ contract LotteryPoolTest is Test, Deployers {
         linkToken.approve(address(vrfCoordinator), linkAmount);
         vrfCoordinator.fundSubscription(lotteryPool.subscriptionId(), linkAmount);
 
-        // Step 6: Deploy PoolPlayHook with precomputed address
+        // Deploy PoolPlayHook with precomputed address
         uint160 flags = uint160(Hooks.BEFORE_INITIALIZE_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG);
 
         address hookAddress = address(flags);
@@ -73,29 +73,29 @@ contract LotteryPoolTest is Test, Deployers {
         deployCodeTo("PoolPlayHook.sol", abi.encode(poolManager, address(0), address(lotteryPool)), hookAddress);
         hook = PoolPlayHook(payable(hookAddress));
 
-        // Step 7: Deploy PoolPlayRouter
+        // Deploy PoolPlayRouter
         router = new PoolPlayRouter(address(poolManager), address(hook));
 
-        // Step 8: Update hook’s allowedRouter
+        // Update hook’s allowedRouter
         vm.store(address(hook), keccak256(abi.encode("allowedRouter")), bytes32(uint256(uint160(address(router)))));
 
-        // Step 9: Approve tokens for hook and router
+        // Approve tokens for hook and router
         token0.approve(address(hook), type(uint256).max);
         token1.approve(address(hook), type(uint256).max);
         token0.approve(address(router), type(uint256).max);
         token1.approve(address(router), type(uint256).max);
 
-        // Step 10: Initialize Uniswap V4 pool
+        // Initialize Uniswap V4 pool
         (key,) =
             initPool(Currency.wrap(address(token0)), Currency.wrap(address(token1)), hook, 3000, 60, SQRT_PRICE_1_1);
         poolId = key.toId();
         poolkey = key;
 
-        // Step 11: Initialize pool in hook via router (assumes onlyAllowedRouter)
+        // Initialize pool in hook via router (assumes onlyAllowedRouter)
         vm.prank(address(router));
         hook.initializePool(poolId, 100, 1 days, 1);
 
-        // Step 12: Add initial liquidity
+        // Add initial liquidity
         vm.startPrank(owner);
         token0.mint(owner, 10 ether); // Mint tokens to owner
         token1.mint(owner, 10 ether);
@@ -113,11 +113,11 @@ contract LotteryPoolTest is Test, Deployers {
         );
         vm.stopPrank();
 
-        // Step 13: Mint tokens for user1
+        // Mint tokens for user1
         token0.mint(user1, 1000 ether);
         token1.mint(user1, 1000 ether);
 
-        // Step 14: Set approvals for user1
+        // Set approvals for user1
         vm.startPrank(user1);
         token0.approve(address(router), type(uint256).max);
         token1.approve(address(router), type(uint256).max);
