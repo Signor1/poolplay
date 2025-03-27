@@ -97,8 +97,8 @@ contract LotteryPoolTest is Test, Deployers {
 
         // Add initial liquidity
         vm.startPrank(owner);
-        token0.mint(owner, 10 ether); // Mint tokens to owner
-        token1.mint(owner, 10 ether);
+        token0.mint(owner, 20 ether); // Mint tokens to owner
+        token1.mint(owner, 20 ether);
         token0.approve(address(modifyLiquidityRouter), type(uint256).max); // Approve router
         token1.approve(address(modifyLiquidityRouter), type(uint256).max);
         modifyLiquidityRouter.modifyLiquidity(
@@ -202,14 +202,12 @@ contract LotteryPoolTest is Test, Deployers {
     function test_SimulateSwapAndFee() public {
         vm.prank(user1);
         uint256 lotteryId = lotteryPool.createLottery(poolId, address(token0), 1 days, 100);
-        console.log("Lottery ID:", lotteryId);
 
         // Direct depositFee test
         vm.startPrank(user1);
         token0.approve(address(lotteryPool), 0.01e18);
         lotteryPool.depositFee(lotteryId, 0.01e18, user1);
         (uint256 totalFees,,) = lotteryPool.getEpoch(lotteryId, 1);
-        console.log("Direct Deposit Fees:", totalFees);
         vm.stopPrank();
 
         vm.startPrank(user1);
@@ -223,7 +221,7 @@ contract LotteryPoolTest is Test, Deployers {
 
         (totalFees,,) = lotteryPool.getEpoch(lotteryId, 1);
         address[] memory participants = lotteryPool.getEpochParticipants(lotteryId, 1);
-        console.log("Post-Swap Fees:", totalFees);
+
         assertGt(totalFees, 0);
         assertEq(participants.length, 1);
         assertEq(participants[0], user1);

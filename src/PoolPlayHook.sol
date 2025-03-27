@@ -144,10 +144,7 @@ contract PoolPlayHook is BaseHook {
             return (this.afterSwap.selector, 0);
         }
 
-        emit TransferFeeCalled(Currency.unwrap(feeCurrency), feeAmount);
-        _transferFee(feeCurrency, feeAmount);
-        emit DepositFeeCalled(config.lotteryId, feeAmount, swapper);
-        ILotteryPool(lotteryPool).depositFee(config.lotteryId, feeAmount, swapper);
+        _transferFee(feeCurrency, feeAmount, config.lotteryId, swapper);
         _emitEvents(poolId, config.lotteryId, feeAmount, feeCurrency);
 
         return (this.afterSwap.selector, 0);
@@ -159,13 +156,14 @@ contract PoolPlayHook is BaseHook {
     }
 
     // Helper: Transfer fee to LotteryPool
-    function _transferFee(Currency feeCurrency, uint256 feeAmount) private {
+    function _transferFee(Currency feeCurrency, uint256 feeAmount, uint256 lotteryId, address swapper) private {
+        emit TransferFeeCalled(Currency.unwrap(feeCurrency), feeAmount);
         if (feeCurrency.isAddressZero()) {
-            (bool success,) = lotteryPool.call{value: feeAmount}("");
-            require(success, "ETH fee transfer failed");
+            ILotteryPool(lotteryPool).depositFee{value: feeAmount}(lotteryId, feeAmount, swapper);
         } else {
             IERC20 token = IERC20(Currency.unwrap(feeCurrency));
             require(token.transfer(lotteryPool, feeAmount), "Token transfer failed");
+            ILotteryPool(lotteryPool).depositFee(lotteryId, feeAmount, swapper);
         }
     }
 
