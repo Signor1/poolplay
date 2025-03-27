@@ -28,6 +28,7 @@ contract LotteryPool is VRFConsumerBaseV2Plus {
     event FeeDeposited(uint256 indexed lotteryId, uint256 epoch, uint256 amount, address swapper);
     event WinnerSelected(uint256 indexed lotteryId, uint256 indexed epoch, address indexed winner, uint256 prize);
     event EpochStarted(uint256 indexed lotteryId, uint256 epoch, uint40 startTime, uint40 endTime);
+    event DepositFeeAttempt(uint256 lotteryId, uint256 amount, address sender);
 
     constructor(address _vrfCoordinator) VRFConsumerBaseV2Plus(_vrfCoordinator) {
         vrfCoordinator = IVRFCoordinatorV2Plus(_vrfCoordinator);
@@ -67,6 +68,7 @@ contract LotteryPool is VRFConsumerBaseV2Plus {
     }
 
     function depositFee(uint256 lotteryId, uint256 amount, address swapper) external payable {
+        emit DepositFeeAttempt(lotteryId, amount, msg.sender);
         LotteryPoolLib.Lottery storage lottery = lotteries[lotteryId];
         require(lottery.lotteryFeeBps > 0, "Lottery not initialized");
         LotteryPoolLib.Epoch storage epoch = lottery.epochs[lottery.currentEpoch];

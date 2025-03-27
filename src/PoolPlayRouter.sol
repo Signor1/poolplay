@@ -44,19 +44,27 @@ contract PoolPlayRouter is Ownable {
     ) external payable returns (BalanceDelta) {
         uint256 inputAmount = swapParams.amountSpecified < 0 ? uint256(-swapParams.amountSpecified) : 0;
         uint256 lotteryFee = (inputAmount * lotteryFeeBps) / 10_000;
+
         Currency feeCurrency = swapParams.zeroForOne ? key.currency0 : key.currency1;
 
-        // Collect swap amount + fee upfront
+        // Deduct fee from swap amount
+        swapParams.amountSpecified = -int256(inputAmount - lotteryFee);
+
+        // Collect only the inputAmount (swap + fee)
         if (feeCurrency.isAddressZero()) {
-            require(msg.value >= inputAmount + lotteryFee, "Insufficient ETH");
+            require(msg.value >= inputAmount, "Insufficient ETH");
+            (bool success,) = hook.call{value: lotteryFee}("");
+            require(success, "ETH fee transfer to hook failed");
         } else {
             require(
-                IERC20(Currency.unwrap(feeCurrency)).transferFrom(msg.sender, address(this), inputAmount + lotteryFee),
+                IERC20(Currency.unwrap(feeCurrency)).transferFrom(msg.sender, address(this), inputAmount),
                 "Token transfer failed"
             );
+            IERC20(Currency.unwrap(feeCurrency)).transfer(hook, lotteryFee);
         }
 
-        bytes memory hookData = abi.encode(msg.sender);
+        // Pass fee info in hookData
+        bytes memory hookData = abi.encode(msg.sender, lotteryFee, feeCurrency);
         BalanceDelta delta = abi.decode(
             manager.unlock(
                 abi.encode(
@@ -77,10 +85,8 @@ contract PoolPlayRouter is Ownable {
         if (msg.sender != address(manager)) revert CallerNotManager();
         CallbackData memory data = abi.decode(_rawdata, (CallbackData));
 
-        // Perform the swap with original params
         BalanceDelta delta = manager.swap(data.key, data.swapParams, data.hookData);
 
-        // Settle deltas
         int256 deltaAfter0 = manager.currencyDelta(address(this), data.key.currency0);
         int256 deltaAfter1 = manager.currencyDelta(address(this), data.key.currency1);
 

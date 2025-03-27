@@ -16,6 +16,7 @@ import {AggregatorV3Interface} from
     "chainlink-brownie-contracts/contracts/src/v0.8/shared/interfaces/AggregatorV3Interface.sol";
 import {ILotteryPool} from "./interfaces/ILotteryPool.sol";
 import {IERC20Metadata} from "./interfaces/IERC20.sol";
+import "forge-std/console.sol";
 
 contract PoolPlayHook is BaseHook {
     using PoolIdLibrary for PoolKey;
@@ -45,6 +46,8 @@ contract PoolPlayHook is BaseHook {
     event PoolInitialized(PoolId indexed poolId, uint256 lotteryId, uint24 lotteryFeeBps, uint48 distributionInterval);
     event LotteryEntered(PoolId indexed poolId, address indexed swapper, uint256 feeAmount, address feeCurrency);
     event FeeTransferred(PoolId indexed poolId, uint256 lotteryId, uint256 amount, address feeCurrency);
+    event TransferFeeCalled(address currency, uint256 amount);
+    event DepositFeeCalled(uint256 lotteryId, uint256 amount, address swapper);
 
     constructor(IPoolManager manager, address _allowedRouter, address _lotteryPool) BaseHook(manager) {
         allowedRouter = _allowedRouter;
@@ -121,8 +124,8 @@ contract PoolPlayHook is BaseHook {
     function _afterSwap(
         address sender,
         PoolKey calldata key,
-        IPoolManager.SwapParams calldata params,
-        BalanceDelta delta,
+        IPoolManager.SwapParams calldata,
+        BalanceDelta,
         bytes calldata hookData
     ) internal override returns (bytes4, int128) {
         if (!_isValidSenderAndData(sender, hookData)) {
@@ -135,18 +138,18 @@ contract PoolPlayHook is BaseHook {
             return (this.afterSwap.selector, 0);
         }
 
-        address swapper = _decodeSwapper(hookData);
-        if (swapper == address(0)) {
+        // Decode hookData with fee info
+        (address swapper, uint256 feeAmount, Currency feeCurrency) = abi.decode(hookData, (address, uint256, Currency));
+        if (swapper == address(0) || feeAmount == 0) {
             return (this.afterSwap.selector, 0);
         }
 
-        (uint256 feeAmount, Currency feeCurrency) = _calculateFee(params, delta, config.lotteryFeeBps, key);
+        emit TransferFeeCalled(Currency.unwrap(feeCurrency), feeAmount);
         _transferFee(feeCurrency, feeAmount);
-
+        emit DepositFeeCalled(config.lotteryId, feeAmount, swapper);
         ILotteryPool(lotteryPool).depositFee(config.lotteryId, feeAmount, swapper);
         _emitEvents(poolId, config.lotteryId, feeAmount, feeCurrency);
 
-        // _updatePoolMetrics(poolId, inputAmount, feeAmount); // Uncomment if needed
         return (this.afterSwap.selector, 0);
     }
 
@@ -155,40 +158,14 @@ contract PoolPlayHook is BaseHook {
         return sender == allowedRouter && hookData.length > 0;
     }
 
-    // Helper: Decode swapper from hook data
-    function _decodeSwapper(bytes calldata hookData) private pure returns (address) {
-        return abi.decode(hookData, (address));
-    }
-
-    // Helper: Calculate fee amount and currency
-    function _calculateFee(
-        IPoolManager.SwapParams calldata params,
-        BalanceDelta delta,
-        uint24 lotteryFeeBps,
-        PoolKey calldata key
-    ) private pure returns (uint256 feeAmount, Currency feeCurrency) {
-        uint256 inputAmount = params.zeroForOne ? uint256(int256(-delta.amount0())) : uint256(int256(-delta.amount1()));
-        feeAmount = _calculateFeeAmount(inputAmount, lotteryFeeBps);
-        feeCurrency = params.zeroForOne ? key.currency0 : key.currency1;
-    }
-
-    // Helper: Calculate fee from input amount
-    function _calculateFeeAmount(uint256 amount, uint24 feeBps) private pure returns (uint256) {
-        return (amount * feeBps) / 10_000; // Assuming BPS (basis points), 10000 = 100%
-    }
-
     // Helper: Transfer fee to LotteryPool
     function _transferFee(Currency feeCurrency, uint256 feeAmount) private {
         if (feeCurrency.isAddressZero()) {
-            require(address(allowedRouter).balance >= feeAmount, "Router lacks ETH");
-            (bool success,) = allowedRouter.call{value: 0}(
-                abi.encodeWithSignature("transferFee(address,uint256)", lotteryPool, feeAmount)
-            );
+            (bool success,) = lotteryPool.call{value: feeAmount}("");
             require(success, "ETH fee transfer failed");
         } else {
             IERC20 token = IERC20(Currency.unwrap(feeCurrency));
-            require(token.allowance(allowedRouter, address(this)) >= feeAmount, "Insufficient allowance");
-            require(token.transferFrom(allowedRouter, lotteryPool, feeAmount), "Token transfer failed");
+            require(token.transfer(lotteryPool, feeAmount), "Token transfer failed");
         }
     }
 
